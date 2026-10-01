@@ -1,11 +1,11 @@
 import heapq
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, List, Tuple, Dict, Callable
 from src.core.state import GameState, Board, Action
 from src.core.actions import get_successors
 from src.search.node import Node, reconstruct_path
 from src.heuristics.deadlock import is_deadlock
 
-def uniform_cost_search(initial_state: GameState, board: Board) -> Tuple[Optional[List[Action]], int, int, int]:
+def astar_search(initial_state: GameState, board: Board, heuristic: Callable[[GameState], float]) -> Tuple[Optional[List[Action]], int, int, int]:
     """
     Returns (actions, total_cost, generated_states, expanded_states).
     If no solution, actions is None.
@@ -16,7 +16,8 @@ def uniform_cost_search(initial_state: GameState, board: Board) -> Tuple[Optiona
         return [], 0, 1, 0
         
     frontier = []
-    heapq.heappush(frontier, (start_node.path_cost, id(start_node), start_node))
+    h_start = heuristic(initial_state)
+    heapq.heappush(frontier, (start_node.path_cost + h_start, id(start_node), start_node))
     
     explored: Dict[GameState, int] = {initial_state: 0}
     
@@ -24,8 +25,9 @@ def uniform_cost_search(initial_state: GameState, board: Board) -> Tuple[Optiona
     generated_states = 1
     
     while frontier:
-        _, _, current_node = heapq.heappop(frontier)
+        f, _, current_node = heapq.heappop(frontier)
         
+        # If we found a cheaper path to this state already, skip it
         if explored.get(current_node.state, float('inf')) < current_node.path_cost:
             continue
             
@@ -45,6 +47,10 @@ def uniform_cost_search(initial_state: GameState, board: Board) -> Tuple[Optiona
             if new_cost < explored.get(next_state, float('inf')):
                 explored[next_state] = new_cost
                 child_node = Node(next_state, current_node, action, new_cost)
-                heapq.heappush(frontier, (child_node.path_cost, id(child_node), child_node))
+                h_val = heuristic(next_state)
+                # Deadlock detection based on infinity heuristic
+                if h_val != float('inf'):
+                    f_val = new_cost + h_val
+                    heapq.heappush(frontier, (f_val, id(child_node), child_node))
                 
     return None, 0, generated_states, expanded_states
