@@ -1,0 +1,5 @@
+Map: maps/benchmark_1.txt
+States tested: 200
+Admissibility violations: 0
+Consistency violations: 0
+Max true_cost - h(s) margin: 0

@@ -1,0 +1,7 @@
+Map,Algorithm,Cost,Length,Generated,Expanded,Time (s)
+maps/test_solvable.txt,UCS,2,2,9,3,0.0001
+maps/test_solvable.txt,A*,2,2,9,3,0.0004
+maps/benchmark_1.txt,UCS,0,0,4283,1654,0.0386
+maps/benchmark_1.txt,A*,0,0,5,1,0.0001
+maps/benchmark_2.txt,UCS,25,25,48701,16424,0.4681
+maps/benchmark_2.txt,A*,25,25,7098,2331,0.0984
