@@ -1,8 +1,8 @@
 import time
 import csv
 from src.core.parser import parse_map
-from src.search.ucs import uniform_cost_search
-from src.search.astar import astar_search
+from src.search.ucs import UniformCostSearch
+from src.search.astar import AStarSearch
 from src.heuristics.push_distance import precompute_push_costs
 from src.heuristics.matching import MatchingHeuristic
 
@@ -15,7 +15,7 @@ def run_benchmarks(map_files, output_csv="results/benchmark_results.csv"):
         
         # UCS
         start_time = time.time()
-        actions_ucs, cost_ucs, gen_ucs, exp_ucs = uniform_cost_search(state, board)
+        actions_ucs, cost_ucs, gen_ucs, exp_ucs = UniformCostSearch().search(state, board)
         time_ucs = time.time() - start_time
         
         # A*
@@ -23,7 +23,7 @@ def run_benchmarks(map_files, output_csv="results/benchmark_results.csv"):
         heuristic = MatchingHeuristic(board, push_costs)
         
         start_time = time.time()
-        actions_astar, cost_astar, gen_astar, exp_astar = astar_search(state, board, heuristic)
+        actions_astar, cost_astar, gen_astar, exp_astar = AStarSearch(heuristic).search(state, board)
         time_astar = time.time() - start_time
         
         assert cost_ucs == cost_astar, f"Cost mismatch on {map_file}: UCS={cost_ucs}, A*={cost_astar}"

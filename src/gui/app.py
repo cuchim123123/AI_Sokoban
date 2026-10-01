@@ -1,11 +1,12 @@
 import pygame
 import sys
 import os
+import time
 from enum import Enum
 from src.core.parser import parse_map
 from src.core.actions import get_successors
-from src.search.ucs import uniform_cost_search
-from src.search.astar import astar_search
+from src.search.ucs import UniformCostSearch
+from src.search.astar import AStarSearch
 from src.heuristics.push_distance import precompute_push_costs
 from src.heuristics.matching import MatchingHeuristic
 
@@ -38,7 +39,10 @@ class App:
     def solve_ucs(self):
         self.computing = True
         self.draw()
-        actions, cost, gen, exp = uniform_cost_search(self.initial_state, self.board)
+        t0 = time.time()
+        actions, cost, gen, exp = UniformCostSearch().search(self.initial_state, self.board)
+        dt = time.time() - t0
+        self.last_metrics = (gen, exp, dt)
         self.apply_solution(actions, "UCS")
         
     def solve_astar(self):
@@ -46,7 +50,10 @@ class App:
         self.draw()
         push_costs = precompute_push_costs(self.board)
         h = MatchingHeuristic(self.board, push_costs)
-        actions, cost, gen, exp = astar_search(self.initial_state, self.board, h)
+        t0 = time.time()
+        actions, cost, gen, exp = AStarSearch(h).search(self.initial_state, self.board)
+        dt = time.time() - t0
+        self.last_metrics = (gen, exp, dt)
         self.apply_solution(actions, "A*")
         
     def apply_solution(self, actions, algo_name):
@@ -97,6 +104,10 @@ class App:
         pygame.draw.rect(self.screen, (30, 30, 30), ui_rect)
         
         info = f"Algo: {self.algorithm} | Step: {self.step_index}/{max(0, len(self.history)-1)}"
+        if hasattr(self, 'last_metrics') and self.algorithm != "None":
+            gen, exp, dt = self.last_metrics
+            info += f" | Gen: {gen} | Exp: {exp} | {dt:.3f}s"
+            
         text = self.font.render(info, True, (255, 255, 255))
         self.screen.blit(text, (10, self.board.height * TILE_SIZE + 10))
         

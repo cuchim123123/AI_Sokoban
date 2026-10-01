@@ -18,8 +18,15 @@ class MatchingHeuristic:
         for box in boxes:
             row = []
             for goal in self.goals:
-                # If a box cannot reach a goal, cost is infinity
-                cost = self.push_costs[goal].get(box, float('inf'))
+                try:
+                    cost = self.push_costs[goal].get(box, float('inf'))
+                except TypeError:
+                    print(f"CRASH DEBUG:")
+                    print(f"goal: {goal}, type: {type(goal)}")
+                    print(f"self.push_costs: type {type(self.push_costs)}")
+                    val = self.push_costs.get(goal)
+                    print(f"self.push_costs[goal]: {val}, type {type(val)}")
+                    raise
                 row.append(cost)
             cost_matrix.append(row)
             
