@@ -130,28 +130,72 @@ def _steal_score(
     agent_pos: Tuple[int, int],
     opponent_completed: FrozenSet[Tuple[int, int]],
     board: Board,
+    free_goals: FrozenSet[Tuple[int, int]],
 ) -> float:
     """
-    How easy is it for agent to reach an opponent completed box AND push it off?
-    Only counts boxes that can be pushed (have at least one free push direction).
+    Directional steal score.
+
+    For each opponent completed box:
+      - If there is a free goal, find the best push direction that moves the
+        box TOWARD that free goal, and reward agent proximity to the correct
+        approach position (same logic as _push_chain_score).
+      - If no free goal exists, fall back to rewarding any pushable direction
+        (at least get it off the goal so our score increases).
+
+    This prevents the agent from approaching from the wrong side and pushing
+    the stolen box into a deadlock wall.
     """
     if not opponent_completed:
         return 0.0
+
     best = 0.0
     for box in opponent_completed:
-        # Check if box can be pushed in at least one direction (not wall-locked)
-        pushable = False
-        for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
-            push_from = (box[0] - dx, box[1] - dy)  # agent must be here to push
-            push_to   = (box[0] + dx, box[1] + dy)  # box lands here
-            if push_from not in board.walls and push_to not in board.walls:
-                pushable = True
-                break
-        if not pushable:
-            continue
-        d = _manhattan(agent_pos, box)
-        best = max(best, 1.0 / (1 + d))
+        if free_goals:
+            # Find push direction that moves box closest to a free goal
+            box_best = -1.0
+            for goal in free_goals:
+                dx = goal[0] - box[0]
+                dy = goal[1] - box[1]
+                if abs(dx) >= abs(dy):
+                    push_dir = (1 if dx > 0 else -1, 0)
+                else:
+                    push_dir = (0, 1 if dy > 0 else -1)
+
+                approach = (box[0] - push_dir[0], box[1] - push_dir[1])
+                push_to  = (box[0] + push_dir[0], box[1] + push_dir[1])
+
+                # Approach must be floor, push destination must be floor
+                if approach in board.walls or push_to in board.walls:
+                    # Try opposite axis
+                    if abs(dx) >= abs(dy):
+                        push_dir = (0, 1 if dy > 0 else (-1 if dy < 0 else 1))
+                    else:
+                        push_dir = (1 if dx > 0 else (-1 if dx < 0 else 1), 0)
+                    approach = (box[0] - push_dir[0], box[1] - push_dir[1])
+                    push_to  = (box[0] + push_dir[0], box[1] + push_dir[1])
+                    if approach in board.walls or push_to in board.walls:
+                        continue
+
+                d = _manhattan(agent_pos, approach)
+                # Reward both proximity to approach AND box proximity to goal
+                box_to_goal = _manhattan(box, goal)
+                score = 0.7 / (1 + d) + 0.3 / (1 + box_to_goal)
+                box_best = max(box_best, score)
+
+            if box_best > 0:
+                best = max(best, box_best)
+        else:
+            # No free goal — just get the box off the goal (any pushable direction)
+            for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
+                approach = (box[0] - dx, box[1] - dy)
+                push_to  = (box[0] + dx, box[1] + dy)
+                if approach not in board.walls and push_to not in board.walls:
+                    d = _manhattan(agent_pos, approach)
+                    best = max(best, 0.5 / (1 + d))
+                    break
+
     return best
+
 
 
 def _mobility(
@@ -194,9 +238,10 @@ def competitive_heuristic(
     chain_a = _push_chain_score(state.agent_a, state.boxes, board, occupied_goals)
     chain_b = _push_chain_score(state.agent_b, state.boxes, board, occupied_goals)
 
-    # Steal opportunity
-    steal_a = _steal_score(state.agent_a, state.boxes_on_goals_b, board)
-    steal_b = _steal_score(state.agent_b, state.boxes_on_goals_a, board)
+    # Steal opportunity (directional — approach from correct side toward a free goal)
+    free_goals = board.goals - occupied_goals
+    steal_a = _steal_score(state.agent_a, state.boxes_on_goals_b, board, free_goals)
+    steal_b = _steal_score(state.agent_b, state.boxes_on_goals_a, board, free_goals)
 
     # Off-goal scatter penalty (same for both — applied symmetrically)
     off_goal = _off_goal_penalty(state.boxes, board, occupied_goals)
