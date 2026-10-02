@@ -15,7 +15,7 @@ class Action(Enum):
 
 class Board:
     """Static board information — walls, goals, dimensions. Created once and shared."""
-    __slots__ = ("walls", "goals", "width", "height", "floor_cells")
+    __slots__ = ("walls", "goals", "width", "height", "floor_cells", "distances")
 
     def __init__(
         self,
@@ -35,7 +35,25 @@ class Board:
             for y in range(height)
             if (x, y) not in self.walls
         )
+        
+        # Precompute all-pairs shortest path (BFS) for legal distances
+        from collections import deque
+        self.distances = {}
+        for start in self.floor_cells:
+            distances = {start: 0}
+            queue = deque([start])
+            while queue:
+                curr = queue.popleft()
+                for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
+                    nxt = (curr[0] + dx, curr[1] + dy)
+                    if nxt in self.floor_cells and nxt not in distances:
+                        distances[nxt] = distances[curr] + 1
+                        queue.append(nxt)
+            self.distances[start] = distances
 
+    def dist(self, a: Tuple[int, int], b: Tuple[int, int]) -> int:
+        """Returns the legal shortest path distance between a and b, or 9999 if unreachable."""
+        return self.distances.get(a, {}).get(b, 9999)
 
 class CompetitiveState:
     """

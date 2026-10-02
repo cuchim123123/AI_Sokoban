@@ -27,8 +27,7 @@ W_MOB      = 1
 W_DEAD     = 60
 
 
-def _manhattan(a: Tuple[int, int], b: Tuple[int, int]) -> int:
-    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
 
 
 def _is_corner_deadlock(box: Tuple[int, int], board: Board) -> bool:
@@ -68,7 +67,7 @@ def _push_chain_score(
     for box in unplaced:
         best_score = -1.0
         for goal in free_goals:
-            box_to_goal_d = _manhattan(box, goal)
+            box_to_goal_d = board.dist(box, goal)
 
             # Determine the dominant push direction (horizontal or vertical)
             dx = goal[0] - box[0]
@@ -92,7 +91,7 @@ def _push_chain_score(
                     push_dir = (1 if dx > 0 else (-1 if dx < 0 else 1), 0)
                 approach = (box[0] - push_dir[0], box[1] - push_dir[1])
 
-            agent_to_approach = _manhattan(agent_pos, approach)
+            agent_to_approach = board.dist(agent_pos, approach)
             score = 1.0 / (1 + box_to_goal_d) + 0.8 / (1 + agent_to_approach)
 
             if score > best_score:
@@ -120,7 +119,7 @@ def _off_goal_penalty(
         return 0.0
     total = 0.0
     for box in unplaced:
-        min_d = min(_manhattan(box, g) for g in board.goals)
+        min_d = min(board.dist(box, g) for g in board.goals)
         total += min_d
     return total
 
@@ -176,9 +175,9 @@ def _steal_score(
                     if approach in board.walls or push_to in board.walls:
                         continue
 
-                d = _manhattan(agent_pos, approach)
+                d = board.dist(agent_pos, approach)
                 # Reward both proximity to approach AND box proximity to goal
-                box_to_goal = _manhattan(box, goal)
+                box_to_goal = board.dist(box, goal)
                 score = 0.7 / (1 + d) + 0.3 / (1 + box_to_goal)
                 box_best = max(box_best, score)
 
@@ -190,7 +189,7 @@ def _steal_score(
                 approach = (box[0] - dx, box[1] - dy)
                 push_to  = (box[0] + dx, box[1] + dy)
                 if approach not in board.walls and push_to not in board.walls:
-                    d = _manhattan(agent_pos, approach)
+                    d = board.dist(agent_pos, approach)
                     best = max(best, 0.5 / (1 + d))
                     break
 
