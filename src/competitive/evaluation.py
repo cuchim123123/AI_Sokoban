@@ -47,24 +47,59 @@ def _push_chain_score(
     occupied_goals: FrozenSet[Tuple[int, int]],
 ) -> float:
     """
-    For each unplaced box, find its best (nearest) free goal and compute:
-        score = 1/(1 + dist(box, goal)) + 0.5/(1 + dist(agent, box))
-    This strongly rewards the agent for being near a box that is near a goal.
-    We sum the best 2 such pairs (to avoid reward dilution on large maps).
+    Directional push-chain score.
+
+    For each (box, goal) pair compute:
+        push_dir     = unit vector from box toward goal (clamped to 4 directions)
+        approach_pos = box - push_dir  (cell agent must stand on to push)
+        score = 1/(1 + dist(box, goal)) + 0.8/(1 + dist(agent, approach_pos))
+
+    Using approach_pos instead of raw box position means the heuristic
+    rewards being on the CORRECT SIDE of the box, eliminating wasted
+    repositioning moves.
     """
     free_goals = board.goals - occupied_goals
-    unplaced = boxes - occupied_goals
+    unplaced   = boxes - occupied_goals
 
     if not free_goals or not unplaced:
         return 0.0
 
     pairs = []
     for box in unplaced:
-        best_goal_d = min(_manhattan(box, g) for g in free_goals)
-        agent_to_box = _manhattan(agent_pos, box)
-        # Full chain score: higher = closer along the push chain
-        score = 1.0 / (1 + best_goal_d) + 0.5 / (1 + agent_to_box)
-        pairs.append(score)
+        best_score = -1.0
+        for goal in free_goals:
+            box_to_goal_d = _manhattan(box, goal)
+
+            # Determine the dominant push direction (horizontal or vertical)
+            dx = goal[0] - box[0]
+            dy = goal[1] - box[1]
+
+            if abs(dx) >= abs(dy):
+                # Horizontal push is primary
+                push_dir = (1 if dx > 0 else -1, 0)
+            else:
+                # Vertical push is primary
+                push_dir = (0, 1 if dy > 0 else -1)
+
+            # Cell the agent must occupy to perform this push
+            approach = (box[0] - push_dir[0], box[1] - push_dir[1])
+
+            # If approach is a wall, try the other axis
+            if approach in board.walls:
+                if abs(dx) >= abs(dy):
+                    push_dir = (0, 1 if dy > 0 else (-1 if dy < 0 else 1))
+                else:
+                    push_dir = (1 if dx > 0 else (-1 if dx < 0 else 1), 0)
+                approach = (box[0] - push_dir[0], box[1] - push_dir[1])
+
+            agent_to_approach = _manhattan(agent_pos, approach)
+            score = 1.0 / (1 + box_to_goal_d) + 0.8 / (1 + agent_to_approach)
+
+            if score > best_score:
+                best_score = score
+
+        if best_score > 0:
+            pairs.append(best_score)
 
     pairs.sort(reverse=True)
     return sum(pairs[:2])
