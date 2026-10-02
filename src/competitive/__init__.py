@@ -1,0 +1,1 @@
+# Competitive Sokoban module
