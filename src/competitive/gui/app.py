@@ -78,6 +78,10 @@ class CompetitiveApp:
         self.conflict_state = False
         self.conflict_action_a = None
         self.conflict_action_b = None
+        
+        # Menu State
+        self.in_menu = True
+        self.agent_types = ["human", "aggressive", "maximin"]
 
     def _load_map(self):
         self.initial_state, self.board = parse_competitive_map(self.map_file)
@@ -115,6 +119,31 @@ class CompetitiveApp:
                     pygame.quit()
                     sys.exit()
                 
+                if event.key == pygame.K_1:
+                    idx = (self.agent_types.index(self.ai_a_type) + 1) % len(self.agent_types)
+                    self.ai_a_type = self.agent_types[idx]
+                    if self.ai_a_type == "human": self.agent_a = None
+                    elif self.ai_a_type == "aggressive": self.agent_a = AgentA("aggressive")
+                    elif self.ai_a_type == "maximin": self.agent_a = AgentA("maximin")
+                elif event.key == pygame.K_2:
+                    idx = (self.agent_types.index(self.ai_b_type) + 1) % len(self.agent_types)
+                    self.ai_b_type = self.agent_types[idx]
+                    if self.ai_b_type == "human": self.agent_b = None
+                    elif self.ai_b_type == "aggressive": self.agent_b = AgentB("aggressive")
+                    elif self.ai_b_type == "maximin": self.agent_b = AgentB("maximin")
+                elif event.key == pygame.K_UP:
+                    self.max_steps += 5
+                elif event.key == pygame.K_DOWN:
+                    self.max_steps = max(5, self.max_steps - 5)
+                
+                if self.in_menu:
+                    if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        self.in_menu = False
+                        self._load_map()
+                        self.running = True
+                        self._last_step_time = pygame.time.get_ticks()
+                    continue
+                
                 # Conflict resolution overrides
                 if self.conflict_state:
                     if event.key == pygame.K_a:
@@ -125,12 +154,15 @@ class CompetitiveApp:
 
                 if event.key == pygame.K_SPACE:
                     if self.finished:
-                        self._load_map()
+                        self.in_menu = True
                     else:
                         self.running = not self.running
                         self._last_step_time = pygame.time.get_ticks()
+                elif event.key == pygame.K_m:
+                    self.in_menu = True
                 elif event.key == pygame.K_r:
                     self._load_map()
+                    self.running = True
                 
                 # Human inputs
                 if self.running and not self.finished and not self.conflict_state:
@@ -223,11 +255,34 @@ class CompetitiveApp:
         self.screen.fill(C_BG)
         self._draw_board()
         self._draw_ui()
-        if self.finished:
+        if self.in_menu:
+            self._draw_menu_overlay()
+        elif self.finished:
             self._draw_result_overlay()
         elif self.conflict_state:
             self._draw_conflict_overlay()
         pygame.display.flip()
+        
+    def _draw_menu_overlay(self):
+        sw, sh = self.screen.get_size()
+        overlay = pygame.Surface((sw, sh), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        self.screen.blit(overlay, (0, 0))
+        
+        cx = sw // 2
+        cy = sh // 2
+        
+        title = self.font_lg.render("Game Setup", True, C_TEXT)
+        opt_a = self.font_md.render(f"[1] Agent A Type: {self.ai_a_type.upper()}", True, C_AGENT_A)
+        opt_b = self.font_md.render(f"[2] Agent B Type: {self.ai_b_type.upper()}", True, C_AGENT_B)
+        opt_steps = self.font_md.render(f"[UP/DOWN] Max Steps: {self.max_steps}", True, C_TEXT)
+        start_btn = self.font_lg.render("Press SPACE to Start", True, (150, 255, 150))
+        
+        self.screen.blit(title, title.get_rect(center=(cx, cy - 80)))
+        self.screen.blit(opt_a, opt_a.get_rect(center=(cx, cy - 30)))
+        self.screen.blit(opt_b, opt_b.get_rect(center=(cx, cy + 10)))
+        self.screen.blit(opt_steps, opt_steps.get_rect(center=(cx, cy + 50)))
+        self.screen.blit(start_btn, start_btn.get_rect(center=(cx, cy + 100)))
         
     def _draw_conflict_overlay(self):
         sw, sh = self.screen.get_size()
@@ -321,11 +376,11 @@ class CompetitiveApp:
 
         # Controls
         if not self.running and not self.finished:
-            ctrl = self.font_sm.render("SPACE = start  |  R = reset  |  Q = quit", True, C_TEXT_DIM)
+            ctrl = self.font_sm.render("SPACE = start  |  R = restart  |  M = menu  |  1/2 = change AI", True, C_TEXT_DIM)
         elif self.running:
-            ctrl = self.font_sm.render("SPACE = pause  |  R = reset  |  Q = quit", True, C_TEXT_DIM)
+            ctrl = self.font_sm.render("SPACE = pause  |  R = restart  |  M = menu  |  1/2 = change AI", True, C_TEXT_DIM)
         else:
-            ctrl = self.font_sm.render("SPACE = restart  |  R = reset  |  Q = quit", True, C_TEXT_DIM)
+            ctrl = self.font_sm.render("SPACE = unpause  |  R = restart  |  M = menu  |  1/2 = change AI", True, C_TEXT_DIM)
         self.screen.blit(ctrl, (14, ui_top + 76))
 
     def _draw_result_overlay(self):

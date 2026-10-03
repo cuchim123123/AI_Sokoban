@@ -6,7 +6,7 @@ from collections import deque
 from typing import Optional, Tuple, Deque, Dict, Any, List
 
 from src.competitive.state import Action, Board, CompetitiveState
-from src.competitive.transition import get_valid_actions, resolve_joint_action
+from src.competitive.transition import get_valid_actions, resolve_joint_action, resolve_joint_action_outcome
 from src.competitive.evaluation import competitive_heuristic
 
 def _step(pos: Tuple[int, int], action: Action) -> Tuple[int, int]:
@@ -16,48 +16,11 @@ def _step(pos: Tuple[int, int], action: Action) -> Tuple[int, int]:
     if action == Action.WEST:  return (pos[0] - 1, pos[1])
     return pos
 
-def _single_agent_transition(state: CompetitiveState, act: Action, perspective: str, board: Board) -> CompetitiveState:
-    """Simulates a move assuming the opponent doesn't exist (yields)."""
-    if act == Action.WAIT:
-        return state
-        
-    pos = state.agent_a if perspective == 'A' else state.agent_b
-    dest = _step(pos, act)
-    
-    # We assume get_valid_actions already cleared dest from walls.
-    # What about boxes?
-    new_boxes = set(state.boxes)
-    new_bga = set(state.boxes_on_goals_a)
-    new_bgb = set(state.boxes_on_goals_b)
-    
-    if dest in state.boxes:
-        push_dest = _step(dest, act)
-        new_boxes.discard(dest)
-        new_boxes.add(push_dest)
-        
-        # Credit
-        if dest in board.goals:
-            new_bga.discard(dest)
-            new_bgb.discard(dest)
-        if push_dest in board.goals:
-            if perspective == 'A':
-                new_bga.add(push_dest)
-            else:
-                new_bgb.add(push_dest)
-                
-    ns = CompetitiveState(
-        agent_a=dest if perspective == 'A' else state.agent_a,
-        agent_b=dest if perspective == 'B' else state.agent_b,
-        boxes=frozenset(new_boxes),
-        boxes_on_goals_a=frozenset(new_bga),
-        boxes_on_goals_b=frozenset(new_bgb),
-        step=state.step + 1
-    )
-    return ns
+# Removed _single_agent_transition as we now use true opponent modeling for all personalities.
 
 # ── Search Constants ──────────────────────────────────────────────────────────
 TIME_LIMIT       = 0.90
-MAX_SEARCH_DEPTH = 20
+MAX_SEARCH_DEPTH = 60
 LOOP_PENALTY     = 30
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -81,6 +44,8 @@ def best_action(
         curr: CompetitiveState,
         depth: int,
         is_max: bool,
+        alpha: float,
+        beta: float,
     ) -> float:
         if time.time() > deadline:
             raise _Deadline()
@@ -112,9 +77,6 @@ def best_action(
         my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
         op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
         
-        if ai_type == "aggressive":
-            op_pos = (-1, -1)
-        
         if is_max:
             acts = get_valid_actions(my_pos, op_pos, curr.boxes, board)
             if not acts:
@@ -129,23 +91,20 @@ def best_action(
             best_act = acts[0]
             
             for act in acts:
-                if ai_type == "aggressive":
-                    # Assume opponent yields completely (ignore them)
-                    ns = _single_agent_transition(curr, act, perspective, board)
-                    # Next is max (single-agent search)
-                    val = _state_value(ns, depth - 1, True)
-                else:
-                    # Transition to MIN node
-                    val = _min_value(curr, depth, act)
+                val = _min_value(curr, depth, act, alpha, beta)
                     
                 if val > best_val:
                     best_val = val
                     best_act = act
                     
+                alpha = max(alpha, best_val)
+                if best_val >= beta:
+                    break
+                    
             tt[board_key] = (depth, best_val, best_act)
             return best_val
             
-    def _min_value(curr: CompetitiveState, depth: int, max_act: Action) -> float:
+    def _min_value(curr: CompetitiveState, depth: int, max_act: Action, alpha: float, beta: float) -> float:
         my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
         op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
         
@@ -155,16 +114,20 @@ def best_action(
             
         worst_val = float('inf')
         for op_act in acts:
-            ns = resolve_joint_action(
-                curr, 
-                max_act if perspective == 'A' else op_act, 
-                op_act if perspective == 'A' else max_act, 
-                board
-            )
-            # Transition to MAX node
-            val = _state_value(ns, depth - 1, True)
+            act_a = max_act if perspective == 'A' else op_act
+            act_b = op_act if perspective == 'A' else max_act
+            
+            out = resolve_joint_action_outcome(curr, act_a, act_b, board)
+            ns = out.state
+                
+            val = _state_value(ns, depth - 1, True, alpha, beta)
+                
             if val < worst_val:
                 worst_val = val
+                
+            beta = min(beta, worst_val)
+            if worst_val <= alpha:
+                break
         return worst_val
 
     # ITERATIVE DEEPENING
@@ -172,9 +135,6 @@ def best_action(
     reached_depth = 0
     my_pos = state.agent_a if perspective == 'A' else state.agent_b
     op_pos = state.agent_b if perspective == 'A' else state.agent_a
-    
-    if ai_type == "aggressive":
-        op_pos = (-1, -1)
         
     root_acts = get_valid_actions(my_pos, op_pos, state.boxes, board)
     
@@ -195,19 +155,18 @@ def best_action(
                 root_acts.remove(pv)
                 root_acts.insert(0, pv)
                 
+            alpha = -float('inf')
+            beta = float('inf')
             best_val = -float('inf')
             best_act = root_acts[0]
             
             for act in root_acts:
-                if ai_type == "aggressive":
-                    ns = _single_agent_transition(state, act, perspective, board)
-                    val = _state_value(ns, d - 1, True)
-                else:
-                    val = _min_value(state, d, act)
+                val = _min_value(state, d, act, alpha, beta)
                     
                 if val > best_val:
                     best_val = val
                     best_act = act
+                alpha = max(alpha, best_val)
                     
             best_act_overall = best_act
             reached_depth = d
@@ -220,14 +179,18 @@ def best_action(
                 stable_count = 0
             prev_best = best_act
             
-            # Stop early if the best action has been stable for 2 depths (so 3 total identical depths)
-            # AND the action is just a walking move (not pushing a box).
-            # Deep search is unreliable for pure walking because the opponent will modify the board.
-            # We want to reserve deep search (and time) for actual box pushes and tactical encounters.
-            if d >= 6 and stable_count >= 2:
-                dest = _step(my_pos, best_act)
-                is_push = (dest in state.boxes)
-                if not is_push:
+            dest = _step(my_pos, best_act)
+            is_push = (dest in state.boxes)
+            
+            if not is_push and d >= 6 and stable_count >= 2:
+                # We ONLY stop early if we are mathematically guaranteed that NO collision 
+                # or interaction can occur within this search depth tree.
+                # Manhattan distance is the absolute theoretical minimum plies required for a collision.
+                # If d < dist_AB, they cannot possibly collide, so walking is perfectly safe and static.
+                # If d >= dist_AB, a collision or tactical interaction is physically possible, so we 
+                # let Iterative Deepening use the FULL remaining time (1000ms budget) to resolve the tension!
+                dist_AB = abs(my_pos[0] - op_pos[0]) + abs(my_pos[1] - op_pos[1])
+                if d < dist_AB:
                     break
                     
     except _Deadline:

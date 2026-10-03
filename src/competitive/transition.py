@@ -225,15 +225,13 @@ def get_valid_actions(
         dest = _step(pos, action)
         if dest in board.walls:
             continue
-        if dest == other_pos:
-            # Moving into other agent's cell — blocked
-            continue
+        # We do NOT exclude dest == other_pos here because the opponent might move out of the tile.
+        # Collision resolution is handled by resolve_joint_action.
         if dest in boxes:
             push_dest = _step(dest, action)
-            if (push_dest in board.walls
-                    or push_dest in boxes
-                    or push_dest == other_pos):
+            if push_dest in board.walls or push_dest in boxes:
                 continue
+            # Note: We also do not forbid push_dest == other_pos here, for the same reason.
         valid.append(action)
 
     if include_wait or not valid:

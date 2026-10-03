@@ -177,8 +177,7 @@ def competitive_heuristic(
     guard_a = _interact_score(state.agent_a, state.boxes_on_goals_a, board)
     guard_b = _interact_score(state.agent_b, state.boxes_on_goals_b, board)
 
-    off_goal = _off_goal_penalty(state.boxes, board, occupied)
-    dead = _deadlock_count(state.boxes, board)
+    # Shared penalties are removed to ensure strictly zero-sum Minimax evaluation.
 
     mob_a = _mobility(state.agent_a, state.boxes, board)
     mob_b = _mobility(state.agent_b, state.boxes, board)
@@ -202,7 +201,4 @@ def competitive_heuristic(
         + W_STEAL * own_steal - (W_STEAL * opp_steal)
         + W_GUARD * own_guard - (W_GUARD * opp_guard)
         + W_MOBILITY * (own_mob - opp_mob)
-        - W_OFF_GOAL * off_goal
-        - W_DEAD * dead
-        - 0.1 * state.step
     )
