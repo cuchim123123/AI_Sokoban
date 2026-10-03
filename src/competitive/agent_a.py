@@ -70,8 +70,8 @@ def best_action(
     if not root_acts:
         root_acts = [Action.NORTH] # Fallback if totally stuck
         
-    best_overall_val = -float('inf')
-    best_overall_act = root_acts[0]
+    best_terminal_val = -float('inf')
+    best_terminal_act = root_acts[0]
     
     # Initialize PQ with root's successors
     opp_act = _get_greedy_opp_act(state, my_pos, op_pos, board, perspective, max_steps, heuristic_cache)
@@ -92,9 +92,11 @@ def best_action(
         if new_my_pos in recent_positions:
             val -= 30
             
-        if val > best_overall_val:
-            best_overall_val = val
-            best_overall_act = act
+        val -= ns.step * 2.0
+        
+        if ns.is_terminal(max_steps) and val > best_terminal_val:
+            best_terminal_val = val
+            best_terminal_act = act
             
         heapq.heappush(pq, (-val, tiebreaker, ns, act))
         tiebreaker += 1
@@ -133,15 +135,29 @@ def best_action(
                 n_val = competitive_heuristic(ns, board, perspective, max_steps)
                 heuristic_cache[ns._hash] = n_val
                 
-            if n_val > best_overall_val:
-                best_overall_val = n_val
-                best_overall_act = first_act
+            n_val -= ns.step * 2.0
+            
+            if ns.is_terminal(max_steps) and n_val > best_terminal_val:
+                best_terminal_val = n_val
+                best_terminal_act = first_act
                 
             heapq.heappush(pq, (-n_val, tiebreaker, ns, first_act))
             tiebreaker += 1
 
-    print(f"Agent {perspective} [GBFS] expanded {nodes_expanded} nodes, chose {best_overall_act}")
-    return best_overall_act
+    if pq:
+        best_frontier_val = -pq[0][0]
+        best_frontier_act = pq[0][3]
+    else:
+        best_frontier_val = -float('inf')
+        best_frontier_act = root_acts[0]
+        
+    if best_terminal_val > best_frontier_val:
+        best_act = best_terminal_act
+    else:
+        best_act = best_frontier_act
+
+    print(f"Agent {perspective} [GBFS] expanded {nodes_expanded} nodes, chose {best_act}")
+    return best_act
 
 
 class AgentA:
