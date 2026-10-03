@@ -3,6 +3,7 @@ Agent controller — Greedy Best-First Search (GBFS).
 """
 import time
 import heapq
+import random
 from collections import deque
 from typing import Optional, Tuple, Deque, Dict, Any, List
 
@@ -18,6 +19,7 @@ def _get_greedy_opp_act(curr: CompetitiveState, curr_my_pos, curr_op_pos, board:
     opp_acts = get_valid_actions(curr_op_pos, curr_my_pos, curr.boxes, board)
     if not opp_acts:
         return Action.WAIT
+    random.shuffle(opp_acts)
     
     # Opponent wants to MINIMIZE our heuristic (since heuristic is zero-sum)
     best_val_for_opp = float('inf') 
@@ -59,7 +61,7 @@ def best_action(
     tiebreaker = 0
     
     visited = set()
-    visited.add(state._hash)
+    visited.add(state.board_hash)
     
     my_pos = state.agent_a if perspective == 'A' else state.agent_b
     op_pos = state.agent_b if perspective == 'A' else state.agent_a
@@ -69,6 +71,7 @@ def best_action(
         root_acts = [a for a in root_acts if a not in banned_actions]
     if not root_acts:
         root_acts = [Action.NORTH] # Fallback if totally stuck
+    random.shuffle(root_acts)
         
     best_terminal_val = -float('inf')
     best_terminal_act = root_acts[0]
@@ -90,7 +93,7 @@ def best_action(
             
         new_my_pos = ns.agent_a if perspective == 'A' else ns.agent_b
         if new_my_pos in recent_positions:
-            val -= 30
+            val -= 1000
             
         val -= ns.step * 2.0
         
@@ -100,7 +103,7 @@ def best_action(
             
         heapq.heappush(pq, (-val, tiebreaker, ns, act))
         tiebreaker += 1
-        visited.add(ns._hash)
+        visited.add(ns.board_hash)
         
     nodes_expanded = 0
     
@@ -118,6 +121,7 @@ def best_action(
         opp_act = _get_greedy_opp_act(curr, curr_my_pos, curr_op_pos, board, perspective, max_steps, heuristic_cache)
         
         acts = get_valid_actions(curr_my_pos, curr_op_pos, curr.boxes, board)
+        random.shuffle(acts)
         for act in acts:
             act_a = act if perspective == 'A' else opp_act
             act_b = opp_act if perspective == 'A' else act
@@ -125,9 +129,9 @@ def best_action(
             out = resolve_joint_action_outcome(curr, act_a, act_b, board)
             ns = out.state
             
-            if ns._hash in visited:
+            if ns.board_hash in visited:
                 continue
-            visited.add(ns._hash)
+            visited.add(ns.board_hash)
             
             if ns._hash in heuristic_cache:
                 n_val = heuristic_cache[ns._hash]
@@ -168,6 +172,8 @@ class AgentA:
         self._history: Deque[Tuple[int, int]] = deque(maxlen=4)
         self.tt: Dict[int, Tuple[int, float, Action]] = {}
         self.heuristic_cache: Dict[int, float] = {}
+        self._last_action: Optional[Action] = None
+        self._last_pos: Optional[Tuple[int, int]] = None
 
     def choose_action(
         self,
@@ -180,15 +186,21 @@ class AgentA:
         if len(self.heuristic_cache) > 500000:
             self.heuristic_cache.clear()
             
+        auto_banned = list(banned_actions) if banned_actions else []
+        if self._last_pos == state.agent_a and self._last_action is not None and self._last_action != Action.WAIT:
+            auto_banned.append(self._last_action)
+            
         action = best_action(
             state, board, max_steps,
             perspective='A',
             recent_positions=self._history,
             tt=self.tt,
             heuristic_cache=self.heuristic_cache,
-            banned_actions=banned_actions
+            banned_actions=auto_banned
         )
         
         self._history.append(state.agent_a)
+        self._last_pos = state.agent_a
+        self._last_action = action
         
         return action

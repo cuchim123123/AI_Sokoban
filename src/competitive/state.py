@@ -78,7 +78,7 @@ class CompetitiveState:
         "boxes",
         "boxes_on_goals_a", "boxes_on_goals_b",
         "step",
-        "_hash",
+        "_hash", "board_hash",
     )
 
     def __init__(
@@ -103,6 +103,13 @@ class CompetitiveState:
             self.boxes_on_goals_a,
             self.boxes_on_goals_b,
             step,
+        ))
+        
+        self.board_hash = hash((
+            agent_a, agent_b,
+            self.boxes,
+            self.boxes_on_goals_a,
+            self.boxes_on_goals_b,
         ))
 
     # ------------------------------------------------------------------

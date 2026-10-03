@@ -7,7 +7,7 @@ from src.competitive.transition import resolve_joint_action_outcome
 from src.competitive.parser import parse_competitive_map
 
 def run_sim():
-    state, board = parse_competitive_map('maps/competitive/dense_goals.txt')
+    state, board = parse_competitive_map('maps/competitive/corridors.txt')
     agent_a = AgentA()
     agent_b = AgentB()
     
