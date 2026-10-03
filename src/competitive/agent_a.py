@@ -32,7 +32,6 @@ def best_action(
     max_steps: int,
     perspective: str,
     recent_positions: Deque[Tuple[int, int]],
-    ai_type: str,
     tt: Dict[int, Tuple[int, float, Action]],
     heuristic_cache: Dict[int, float],
     time_limit: float = TIME_LIMIT,
@@ -65,11 +64,6 @@ def best_action(
             else:
                 val = competitive_heuristic(curr, board, perspective, max_steps)
                 heuristic_cache[curr._hash] = val
-                
-            if ai_type != "aggressive":
-                my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
-                if my_pos in recent_positions:
-                    val -= LOOP_PENALTY
                     
             tt[board_key] = (0, val, Action.WAIT)
             return val
@@ -196,7 +190,7 @@ def best_action(
     except _Deadline:
         pass
         
-    print(f"Agent {perspective} [{ai_type}] reached depth {reached_depth}")
+    print(f"Agent {perspective} reached depth {reached_depth}")
     return best_act_overall
 
 
@@ -206,8 +200,7 @@ class AgentA:
     to retain knowledge across turns.
     """
 
-    def __init__(self, ai_type: str = "aggressive"):
-        self.ai_type = ai_type
+    def __init__(self):
         self._history: Deque[Tuple[int, int]] = deque(maxlen=4)
         self.tt: Dict[int, Tuple[int, float, Action]] = {}
         self.heuristic_cache: Dict[int, float] = {}
@@ -228,7 +221,6 @@ class AgentA:
             state, board, max_steps,
             perspective='A',
             recent_positions=self._history,
-            ai_type=self.ai_type,
             tt=self.tt,
             heuristic_cache=self.heuristic_cache,
             banned_actions=banned_actions

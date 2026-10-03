@@ -42,18 +42,18 @@ C_WIN_DRAW = (200, 200, 200)
 
 
 class CompetitiveApp:
-    def __init__(self, map_file: str, max_steps: int, ai_a: str = "aggressive", ai_b: str = "aggressive"):
+    def __init__(self, map_file: str, max_steps: int, ai_a: str = "AI", ai_b: str = "AI"):
         pygame.init()
         pygame.display.set_caption("Sokoban — Competitive Mode")
 
         self.map_file  = map_file
         self.max_steps = max_steps
-        self.ai_a_type = ai_a
-        self.ai_b_type = ai_b
+        self.ai_a_type = ai_a if ai_a in ["human", "AI"] else "AI"
+        self.ai_b_type = ai_b if ai_b in ["human", "AI"] else "AI"
         
         # Instantiate agents (None if human)
-        self.agent_a = AgentA(ai_a) if ai_a != "human" else None
-        self.agent_b = AgentB(ai_b) if ai_b != "human" else None
+        self.agent_a = AgentA() if self.ai_a_type == "AI" else None
+        self.agent_b = AgentB() if self.ai_b_type == "AI" else None
 
         self._load_map()
 
@@ -81,7 +81,7 @@ class CompetitiveApp:
         
         # Menu State
         self.in_menu = True
-        self.agent_types = ["human", "aggressive", "maximin"]
+        self.agent_types = ["human", "AI"]
 
     def _load_map(self):
         self.initial_state, self.board = parse_competitive_map(self.map_file)
@@ -123,14 +123,12 @@ class CompetitiveApp:
                     idx = (self.agent_types.index(self.ai_a_type) + 1) % len(self.agent_types)
                     self.ai_a_type = self.agent_types[idx]
                     if self.ai_a_type == "human": self.agent_a = None
-                    elif self.ai_a_type == "aggressive": self.agent_a = AgentA("aggressive")
-                    elif self.ai_a_type == "maximin": self.agent_a = AgentA("maximin")
+                    elif self.ai_a_type == "AI": self.agent_a = AgentA()
                 elif event.key == pygame.K_2:
                     idx = (self.agent_types.index(self.ai_b_type) + 1) % len(self.agent_types)
                     self.ai_b_type = self.agent_types[idx]
                     if self.ai_b_type == "human": self.agent_b = None
-                    elif self.ai_b_type == "aggressive": self.agent_b = AgentB("aggressive")
-                    elif self.ai_b_type == "maximin": self.agent_b = AgentB("maximin")
+                    elif self.ai_b_type == "AI": self.agent_b = AgentB()
                 elif event.key == pygame.K_UP:
                     self.max_steps += 5
                 elif event.key == pygame.K_DOWN:

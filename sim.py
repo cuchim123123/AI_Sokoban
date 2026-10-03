@@ -8,8 +8,8 @@ from src.competitive.parser import parse_competitive_map
 
 def run_sim():
     state, board = parse_competitive_map('maps/competitive/dense_goals.txt')
-    agent_a = AgentA('aggressive')
-    agent_b = AgentB('aggressive')
+    agent_a = AgentA()
+    agent_b = AgentB()
     
     for i in range(15):
         print(f"\n--- STEP {i} ---")

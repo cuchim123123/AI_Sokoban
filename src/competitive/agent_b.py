@@ -14,8 +14,7 @@ class AgentB:
     to retain knowledge across turns.
     """
 
-    def __init__(self, ai_type: str = "aggressive"):
-        self.ai_type = ai_type
+    def __init__(self):
         self._history: Deque[Tuple[int, int]] = deque(maxlen=4)
         self.tt: Dict[int, Tuple[int, float, Action]] = {}
         self.heuristic_cache: Dict[int, float] = {}
@@ -35,7 +34,6 @@ class AgentB:
             state, board, max_steps,
             perspective="B",
             recent_positions=self._history,
-            ai_type=self.ai_type,
             tt=self.tt,
             heuristic_cache=self.heuristic_cache,
             banned_actions=banned_actions

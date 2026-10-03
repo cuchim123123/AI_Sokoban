@@ -57,8 +57,8 @@ if __name__ == "__main__":
         from src.competitive.gui.app import CompetitiveApp
         map_file  = args[0] if len(args) > 0 else "maps/competitive/arena_open.txt"
         max_steps = int(args[1]) if len(args) > 1 else 50
-        ai_a = args[2] if len(args) > 2 else "aggressive"
-        ai_b = args[3] if len(args) > 3 else "aggressive"
+        ai_a = args[2] if len(args) > 2 else "AI"
+        ai_b = args[3] if len(args) > 3 else "AI"
         print(f"Starting competitive mode | map: {map_file} | steps: {max_steps} | A: {ai_a} | B: {ai_b}")
         app = CompetitiveApp(map_file, max_steps, ai_a, ai_b)
         app.run()
