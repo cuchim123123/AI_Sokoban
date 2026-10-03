@@ -14,6 +14,33 @@ from src.competitive.evaluation import competitive_heuristic
 TIME_LIMIT = 0.90
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _get_greedy_opp_act(curr: CompetitiveState, curr_my_pos, curr_op_pos, board: Board, perspective: str, max_steps: int, heuristic_cache: Dict[int, float]) -> Action:
+    opp_acts = get_valid_actions(curr_op_pos, curr_my_pos, curr.boxes, board)
+    if not opp_acts:
+        return Action.WAIT
+    
+    # Opponent wants to MINIMIZE our heuristic (since heuristic is zero-sum)
+    best_val_for_opp = float('inf') 
+    best_act = opp_acts[0]
+    
+    for act in opp_acts:
+        act_a = Action.WAIT if perspective == 'A' else act
+        act_b = act if perspective == 'A' else Action.WAIT
+        
+        ns = resolve_joint_action_outcome(curr, act_a, act_b, board).state
+        if ns._hash in heuristic_cache:
+            val = heuristic_cache[ns._hash]
+        else:
+            val = competitive_heuristic(ns, board, perspective, max_steps)
+            heuristic_cache[ns._hash] = val
+            
+        if val < best_val_for_opp:
+            best_val_for_opp = val
+            best_act = act
+            
+    return best_act
+
+
 def best_action(
     state: CompetitiveState,
     board: Board,
@@ -47,9 +74,10 @@ def best_action(
     best_overall_act = root_acts[0]
     
     # Initialize PQ with root's successors
+    opp_act = _get_greedy_opp_act(state, my_pos, op_pos, board, perspective, max_steps, heuristic_cache)
     for act in root_acts:
-        act_a = act if perspective == 'A' else Action.WAIT
-        act_b = Action.WAIT if perspective == 'A' else act
+        act_a = act if perspective == 'A' else opp_act
+        act_b = opp_act if perspective == 'A' else act
         
         out = resolve_joint_action_outcome(state, act_a, act_b, board)
         ns = out.state
@@ -85,10 +113,12 @@ def best_action(
         curr_my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
         curr_op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
         
+        opp_act = _get_greedy_opp_act(curr, curr_my_pos, curr_op_pos, board, perspective, max_steps, heuristic_cache)
+        
         acts = get_valid_actions(curr_my_pos, curr_op_pos, curr.boxes, board)
         for act in acts:
-            act_a = act if perspective == 'A' else Action.WAIT
-            act_b = Action.WAIT if perspective == 'A' else act
+            act_a = act if perspective == 'A' else opp_act
+            act_b = opp_act if perspective == 'A' else act
             
             out = resolve_joint_action_outcome(curr, act_a, act_b, board)
             ns = out.state
