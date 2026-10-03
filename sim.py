@@ -11,13 +11,13 @@ def run_sim():
     agent_a = AgentA()
     agent_b = AgentB()
     
-    for i in range(15):
+    for i in range(40):
         print(f"\n--- STEP {i} ---")
         print(f"A: {state.agent_a}  B: {state.agent_b}")
         print(f"Boxes: {list(state.boxes)}")
         
-        act_a = agent_a.choose_action(state, board, max_steps=20)
-        act_b = agent_b.choose_action(state, board, max_steps=20)
+        act_a = agent_a.choose_action(state, board, max_steps=50)
+        act_b = agent_b.choose_action(state, board, max_steps=50)
         
         print(f"A chose: {act_a.name}")
         print(f"B chose: {act_b.name}")

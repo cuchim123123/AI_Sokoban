@@ -61,7 +61,7 @@ def best_action(
     tiebreaker = 0
     
     visited = set()
-    visited.add(state.board_hash)
+    visited.add(state._hash)
     
     my_pos = state.agent_a if perspective == 'A' else state.agent_b
     op_pos = state.agent_b if perspective == 'A' else state.agent_a
@@ -92,7 +92,7 @@ def best_action(
             heuristic_cache[ns._hash] = val
             
         new_my_pos = ns.agent_a if perspective == 'A' else ns.agent_b
-        if new_my_pos in recent_positions:
+        if new_my_pos in recent_positions and new_my_pos != my_pos:
             val -= 1000
             
         val -= ns.step * 2.0
@@ -101,9 +101,11 @@ def best_action(
             best_terminal_val = val
             best_terminal_act = act
             
+        if state.step >= 6:
+            print(f"[{perspective}] Root {act} -> val {val} (new_pos {new_my_pos}, recent {list(recent_positions)})")
         heapq.heappush(pq, (-val, tiebreaker, ns, act))
         tiebreaker += 1
-        visited.add(ns.board_hash)
+        visited.add(ns._hash)
         
     nodes_expanded = 0
     
@@ -129,9 +131,9 @@ def best_action(
             out = resolve_joint_action_outcome(curr, act_a, act_b, board)
             ns = out.state
             
-            if ns.board_hash in visited:
+            if ns._hash in visited:
                 continue
-            visited.add(ns.board_hash)
+            visited.add(ns._hash)
             
             if ns._hash in heuristic_cache:
                 n_val = heuristic_cache[ns._hash]
