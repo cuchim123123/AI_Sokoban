@@ -75,9 +75,7 @@ class CompetitiveApp:
         # Human Input State
         self.pending_human_a = None
         self.pending_human_b = None
-        self.conflict_state = False
-        self.conflict_action_a = None
-        self.conflict_action_b = None
+
         
         # Menu State
         self.in_menu = True
@@ -91,14 +89,14 @@ class CompetitiveApp:
         self._metrics = []
         self.pending_human_a = None
         self.pending_human_b = None
-        self.conflict_state = False
+
 
     def run(self):
         while True:
             self._handle_events()
 
             now = pygame.time.get_ticks()
-            if self.running and not self.finished and not self.conflict_state:
+            if self.running and not self.finished:
                 if self.agent_a is None or self.agent_b is None:
                     # If any human, don't use timer delay, wait for input
                     self._step()
@@ -142,13 +140,6 @@ class CompetitiveApp:
                         self._last_step_time = pygame.time.get_ticks()
                     continue
                 
-                # Conflict resolution overrides
-                if self.conflict_state:
-                    if event.key == pygame.K_a:
-                        self._apply_conflict_resolution('A')
-                    elif event.key == pygame.K_b:
-                        self._apply_conflict_resolution('B')
-                    continue
 
                 if event.key == pygame.K_SPACE:
                     if self.finished:
@@ -163,7 +154,7 @@ class CompetitiveApp:
                     self.running = True
                 
                 # Human inputs
-                if self.running and not self.finished and not self.conflict_state:
+                if self.running and not self.finished:
                     # Player A: WASD + Left Shift (Wait)
                     if self.agent_a is None:
                         if event.key == pygame.K_w: self.pending_human_a = Action.NORTH
@@ -180,36 +171,7 @@ class CompetitiveApp:
                         elif event.key == pygame.K_RIGHT: self.pending_human_b = Action.EAST
                         elif event.key == pygame.K_RSHIFT: self.pending_human_b = Action.WAIT
 
-    def _apply_conflict_resolution(self, yielded_agent: str):
-        act_a = self.conflict_action_a
-        act_b = self.conflict_action_b
-        
-        if yielded_agent == 'A':
-            if self.agent_a is not None:
-                act_a = self.agent_a.choose_action(self.state, self.board, self.max_steps, banned_actions=[self.conflict_action_a])
-            else:
-                act_a = Action.WAIT
-        elif yielded_agent == 'B':
-            if self.agent_b is not None:
-                act_b = self.agent_b.choose_action(self.state, self.board, self.max_steps, banned_actions=[self.conflict_action_b])
-            else:
-                act_b = Action.WAIT
-                
-        out = resolve_joint_action_outcome(self.state, act_a, act_b, self.board, self.max_steps)
-        
-        if out.conflict and act_a != Action.WAIT and act_b != Action.WAIT:
-            self.conflict_state = True
-            self.conflict_action_a = act_a
-            self.conflict_action_b = act_b
-            return
-            
-        self.conflict_state = False
-        self.state = out.state
-        self._metrics.append((self.state.step, act_a, act_b, 0.0, 0.0))
-        if self.state.is_terminal(self.max_steps):
-            self.finished = True
-            self.running = False
-        self._last_step_time = pygame.time.get_ticks()
+
 
     def _step(self):
         if self.state.is_terminal(self.max_steps):
@@ -235,12 +197,7 @@ class CompetitiveApp:
 
         out = resolve_joint_action_outcome(self.state, action_a, action_b, self.board, self.max_steps)
         
-        # Detect Conflict
-        if out.conflict and action_a != Action.WAIT and action_b != Action.WAIT:
-            self.conflict_state = True
-            self.conflict_action_a = action_a
-            self.conflict_action_b = action_b
-            return
+
             
         self.state = out.state
         self._metrics.append((self.state.step, action_a, action_b, dt_a, dt_b))
@@ -257,8 +214,6 @@ class CompetitiveApp:
             self._draw_menu_overlay()
         elif self.finished:
             self._draw_result_overlay()
-        elif self.conflict_state:
-            self._draw_conflict_overlay()
         pygame.display.flip()
         
     def _draw_menu_overlay(self):
@@ -282,24 +237,7 @@ class CompetitiveApp:
         self.screen.blit(opt_steps, opt_steps.get_rect(center=(cx, cy + 50)))
         self.screen.blit(start_btn, start_btn.get_rect(center=(cx, cy + 100)))
         
-    def _draw_conflict_overlay(self):
-        sw, sh = self.screen.get_size()
-        overlay = pygame.Surface((sw, sh), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
-        self.screen.blit(overlay, (0, 0))
-        
-        cx = sw // 2
-        cy = (self.board.height * TILE) // 2
-        
-        txt = self.font_lg.render("CONFLICT!", True, (255, 50, 50))
-        sub = self.font_md.render("Agents collided! Who yields?", True, C_TEXT)
-        hint1 = self.font_sm.render("Press 'A' to force Agent A to yield (WAIT)", True, C_AGENT_A)
-        hint2 = self.font_sm.render("Press 'B' to force Agent B to yield (WAIT)", True, C_AGENT_B)
-        
-        self.screen.blit(txt, txt.get_rect(center=(cx, cy - 40)))
-        self.screen.blit(sub, sub.get_rect(center=(cx, cy - 10)))
-        self.screen.blit(hint1, hint1.get_rect(center=(cx, cy + 20)))
-        self.screen.blit(hint2, hint2.get_rect(center=(cx, cy + 45)))
+
 
     def _draw_board(self):
         board = self.board
