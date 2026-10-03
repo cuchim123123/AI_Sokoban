@@ -29,7 +29,7 @@ def _get_greedy_opp_act(curr: CompetitiveState, curr_my_pos, curr_op_pos, board:
         act_a = Action.WAIT if perspective == 'A' else act
         act_b = act if perspective == 'A' else Action.WAIT
         
-        ns = resolve_joint_action_outcome(curr, act_a, act_b, board).state
+        ns = resolve_joint_action_outcome(curr, act_a, act_b, board, max_steps).state
         if ns._hash in heuristic_cache:
             val = heuristic_cache[ns._hash]
         else:
@@ -82,7 +82,7 @@ def best_action(
         act_a = act if perspective == 'A' else opp_act
         act_b = opp_act if perspective == 'A' else act
         
-        out = resolve_joint_action_outcome(state, act_a, act_b, board)
+        out = resolve_joint_action_outcome(state, act_a, act_b, board, max_steps)
         ns = out.state
         
         if ns._hash in heuristic_cache:
@@ -128,7 +128,7 @@ def best_action(
             act_a = act if perspective == 'A' else opp_act
             act_b = opp_act if perspective == 'A' else act
             
-            out = resolve_joint_action_outcome(curr, act_a, act_b, board)
+            out = resolve_joint_action_outcome(curr, act_a, act_b, board, max_steps)
             ns = out.state
             
             if ns._hash in visited:
@@ -189,8 +189,6 @@ class AgentA:
             self.heuristic_cache.clear()
             
         auto_banned = list(banned_actions) if banned_actions else []
-        if self._last_pos == state.agent_a and self._last_action is not None and self._last_action != Action.WAIT:
-            auto_banned.append(self._last_action)
             
         action = best_action(
             state, board, max_steps,

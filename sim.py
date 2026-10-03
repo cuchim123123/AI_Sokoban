@@ -22,7 +22,7 @@ def run_sim():
         print(f"A chose: {act_a.name}")
         print(f"B chose: {act_b.name}")
         
-        out = resolve_joint_action_outcome(state, act_a, act_b, board)
+        out = resolve_joint_action_outcome(state, act_a, act_b, board, 50)
         if out.conflict:
             print(">>> CONFLICT! <<<")
             

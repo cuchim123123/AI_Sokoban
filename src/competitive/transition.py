@@ -29,6 +29,7 @@ def resolve_joint_action_outcome(
     action_a: Action,
     action_b: Action,
     board: Board,
+    max_steps: int,
 ):
     """
     Deterministic joint transition.  Returns next CompetitiveState (step+1).
@@ -73,41 +74,52 @@ def resolve_joint_action_outcome(
     # ── 4. Inter-agent conflict rules ─────────────────────────────────────────
 
     conflict_occurred = False
+    
+    # Priority logic
+    remaining_steps = max_steps - state.step
+    a_has_priority = (remaining_steps % 2 != 0)
+
+    # Function to apply conflict resolution
+    def _resolve_conflict():
+        nonlocal valid_a, valid_b, conflict_occurred
+        conflict_occurred = True
+        if a_has_priority:
+            valid_b = False
+        else:
+            valid_a = False
 
     # Rule 7.1 — both target the same destination cell
     if valid_a and valid_b and dest_a == dest_b:
         if action_a != Action.WAIT or action_b != Action.WAIT:
-            valid_a = valid_b = False
-            conflict_occurred = True
+            _resolve_conflict()
 
     # Rule 7.2 — swap
     if valid_a and valid_b:
         if dest_a == pos_b and dest_b == pos_a:
-            valid_a = valid_b = False
-            conflict_occurred = True
+            _resolve_conflict()
 
     # Rules 7.3 / 7.4 — both push the same box (any direction)
     if valid_a and valid_b and push_a_box is not None and push_b_box is not None:
         if push_a_box == push_b_box:
-            valid_a = valid_b = False
-            conflict_occurred = True
+            _resolve_conflict()
 
     # Cross-check: A pushes box to where B is simultaneously moving or waiting
     if valid_a and valid_b:
         if push_a_dest is not None and push_a_dest == dest_b:
-            valid_a = False
-            conflict_occurred = True
-        if push_b_dest is not None and push_b_dest == dest_a:
-            valid_b = False
-            conflict_occurred = True
+            _resolve_conflict()
+        elif push_b_dest is not None and push_b_dest == dest_a:
+            _resolve_conflict()
 
     # Re-validate: after one side fails, the other might now be free
     # (e.g. B fails → A can move to what was B's destination)
-    # We keep the flags as-is; re-validation only needed for same-dest case:
     if not valid_a and valid_b:
-        # Re-check B: was B blocked only because A was heading there?
-        # If A now fails, B's path is clear.
-        pass  # B's valid_b was set independently above — no re-check needed.
+        # Re-check B's push target. If A was occupying it, but A failed to move, A is STILL occupying it!
+        # Wait, if A failed to move, A stays at pos_a. If B's destination or push destination is pos_a, B should fail.
+        if dest_b == pos_a or push_b_dest == pos_a:
+            valid_b = False
+    elif valid_a and not valid_b:
+        if dest_a == pos_b or push_a_dest == pos_b:
+            valid_a = False
 
     # ── 5. Commit valid moves ─────────────────────────────────────────────────
     new_boxes: set = set(boxes)
@@ -168,7 +180,7 @@ def resolve_joint_action(
     action_b: Action,
     board: Board,
 ) -> CompetitiveState:
-    return resolve_joint_action_outcome(state, action_a, action_b, board).state
+    return resolve_joint_action_outcome(state, action_a, action_b, board, 1000).state
 
 
 # ── Credit bookkeeping ────────────────────────────────────────────────────────

@@ -33,8 +33,6 @@ class AgentB:
             self.heuristic_cache.clear()
 
         auto_banned = list(banned_actions) if banned_actions else []
-        if self._last_pos == state.agent_b and self._last_action is not None and self._last_action != Action.WAIT:
-            auto_banned.append(self._last_action)
 
         action = best_action(
             state, board, max_steps,

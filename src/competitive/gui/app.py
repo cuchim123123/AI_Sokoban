@@ -195,7 +195,7 @@ class CompetitiveApp:
             else:
                 act_b = Action.WAIT
                 
-        out = resolve_joint_action_outcome(self.state, act_a, act_b, self.board)
+        out = resolve_joint_action_outcome(self.state, act_a, act_b, self.board, self.max_steps)
         
         if out.conflict and act_a != Action.WAIT and act_b != Action.WAIT:
             self.conflict_state = True
@@ -233,7 +233,7 @@ class CompetitiveApp:
         self.pending_human_a = None
         self.pending_human_b = None
 
-        out = resolve_joint_action_outcome(self.state, action_a, action_b, self.board)
+        out = resolve_joint_action_outcome(self.state, action_a, action_b, self.board, self.max_steps)
         
         # Detect Conflict
         if out.conflict and action_a != Action.WAIT and action_b != Action.WAIT:
