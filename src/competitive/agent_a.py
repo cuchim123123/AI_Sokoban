@@ -1,210 +1,278 @@
 """
-Agent A controller — time-bounded Greedy Best-First Search (GBFS).
-
-Design decisions to avoid looping / staying still:
-  - WAIT is only ever returned as a last resort (no other action available).
-  - Recent position history (last 4 cells) penalises revisiting the same cell.
-  - Opponent is modelled via a 1-step greedy look-ahead (not assumed to WAIT).
-  - GBFS explores states ordered by -h(s); the best first action on the
-    deepest explored path is returned before the deadline.
-  - A tie-breaking counter prevents heap-order ambiguity.
+Agent A controller — Iterative Deepening Minimax/Maximin with Global TT & PV Ordering.
 """
-import heapq
 import time
-import itertools
-from typing import Optional, Tuple, Deque
 from collections import deque
+from typing import Optional, Tuple, Deque, Dict, Any, List
 
 from src.competitive.state import Action, Board, CompetitiveState
-from src.competitive.transition import resolve_joint_action, get_valid_actions
+from src.competitive.transition import get_valid_actions, resolve_joint_action
 from src.competitive.evaluation import competitive_heuristic
 
-_TIME_LIMIT = 0.90   # seconds — leaves headroom for GUI
-_LOOP_PENALTY = 30   # heuristic penalty for immediately revisiting a cell
+def _step(pos: Tuple[int, int], action: Action) -> Tuple[int, int]:
+    if action == Action.NORTH: return (pos[0], pos[1] - 1)
+    if action == Action.SOUTH: return (pos[0], pos[1] + 1)
+    if action == Action.EAST:  return (pos[0] + 1, pos[1])
+    if action == Action.WEST:  return (pos[0] - 1, pos[1])
+    return pos
 
+def _single_agent_transition(state: CompetitiveState, act: Action, perspective: str, board: Board) -> CompetitiveState:
+    """Simulates a move assuming the opponent doesn't exist (yields)."""
+    if act == Action.WAIT:
+        return state
+        
+    pos = state.agent_a if perspective == 'A' else state.agent_b
+    dest = _step(pos, act)
+    
+    # We assume get_valid_actions already cleared dest from walls.
+    # What about boxes?
+    new_boxes = set(state.boxes)
+    new_bga = set(state.boxes_on_goals_a)
+    new_bgb = set(state.boxes_on_goals_b)
+    
+    if dest in state.boxes:
+        push_dest = _step(dest, act)
+        new_boxes.discard(dest)
+        new_boxes.add(push_dest)
+        
+        # Credit
+        if dest in board.goals:
+            new_bga.discard(dest)
+            new_bgb.discard(dest)
+        if push_dest in board.goals:
+            if perspective == 'A':
+                new_bga.add(push_dest)
+            else:
+                new_bgb.add(push_dest)
+                
+    ns = CompetitiveState(
+        agent_a=dest if perspective == 'A' else state.agent_a,
+        agent_b=dest if perspective == 'B' else state.agent_b,
+        boxes=frozenset(new_boxes),
+        boxes_on_goals_a=frozenset(new_bga),
+        boxes_on_goals_b=frozenset(new_bgb),
+        step=state.step + 1
+    )
+    return ns
 
-def _predict_opponent_action(
-    state: CompetitiveState,
-    board: Board,
-    max_steps: int,
-    opp_perspective: str,
-    my_action: Action,
-    my_perspective: str,
-) -> Action:
-    """
-    Predict what the opponent will greedily do given that we play `my_action`.
-    Evaluates all opponent actions against the joint state to pick the best.
-    """
-    # 'opp_perspective' is the opponent's label ('A' or 'B')
-    if opp_perspective == 'B':
-        opp_pos = state.agent_b
-        my_pos  = state.agent_a
-    else:
-        opp_pos = state.agent_a
-        my_pos  = state.agent_b
+# ── Search Constants ──────────────────────────────────────────────────────────
+TIME_LIMIT       = 0.90
+MAX_SEARCH_DEPTH = 20
+LOOP_PENALTY     = 30
+# ──────────────────────────────────────────────────────────────────────────────
 
-    opp_acts = get_valid_actions(opp_pos, my_pos, state.boxes, board)
+class _Deadline(Exception): pass
 
-    best_act = opp_acts[0] if opp_acts else Action.WAIT
-    best_h   = -float('inf')
-
-    for opp_act in opp_acts:
-        # Simulate joint move: my action + opponent's candidate action
-        if my_perspective == 'A':
-            ns = resolve_joint_action(state, my_action, opp_act, board)
-        else:
-            ns = resolve_joint_action(state, opp_act, my_action, board)
-        h = competitive_heuristic(ns, board, opp_perspective, max_steps)
-        if h > best_h:
-            best_h   = h
-            best_act = opp_act
-
-    return best_act
-
-
-def _gbfs_best_action(
+def best_action(
     state: CompetitiveState,
     board: Board,
     max_steps: int,
     perspective: str,
-    opponent_perspective: str,
-    recent_positions: Deque,
-    time_limit: float = _TIME_LIMIT,
+    recent_positions: Deque[Tuple[int, int]],
+    ai_type: str,
+    tt: Dict[int, Tuple[int, float, Action]],
+    heuristic_cache: Dict[int, float],
+    time_limit: float = TIME_LIMIT,
+    banned_actions: List[Action] = None
 ) -> Action:
-    """
-    Time-bounded GBFS returning the single best action for the given agent.
-    `recent_positions` is a deque of the last few (x,y) cells the agent
-    actually occupied — used to penalise revisiting and break loops.
-    """
     deadline = time.time() + time_limit
 
-    my_pos  = state.agent_a if perspective == 'A' else state.agent_b
-    opp_pos = state.agent_b if perspective == 'A' else state.agent_a
+    def _state_value(
+        curr: CompetitiveState,
+        depth: int,
+        is_max: bool,
+    ) -> float:
+        if time.time() > deadline:
+            raise _Deadline()
+        
+        # Check TT (strict depth match is required to prevent caching bugs)
+        board_key = curr._hash ^ (hash(is_max))
+        pv_action = None
+        if board_key in tt:
+            cached_depth, cached_value, cached_action = tt[board_key]
+            if cached_depth >= depth:
+                return cached_value
+            pv_action = cached_action
 
-    my_actions = get_valid_actions(my_pos, opp_pos, state.boxes, board)
-    # include_wait=True already handled inside get_valid_actions when empty
-
-    if not my_actions:
-        return Action.WAIT
-
-    # ── Depth-1 greedy pick (guaranteed before deadline) ─────────────────────
-    best_action = my_actions[0]
-    best_h      = -float('inf')
-
-    for act in my_actions:
-        # Predict opponent response to this action
-        opp_act = _predict_opponent_action(
-            state, board, max_steps, opponent_perspective, act, perspective
-        )
-        if perspective == 'A':
-            ns = resolve_joint_action(state, act, opp_act, board)
-        else:
-            ns = resolve_joint_action(state, opp_act, act, board)
-
-        h = competitive_heuristic(ns, board, perspective, max_steps)
-
-        # Penalise immediately returning to a recently visited cell
-        new_my_pos = ns.agent_a if perspective == 'A' else ns.agent_b
-        if new_my_pos in recent_positions:
-            h -= _LOOP_PENALTY
-
-        if h > best_h:
-            best_h   = h
-            best_action = act
-
-    if state.is_terminal(max_steps):
-        return best_action
-
-    # ── GBFS deeper search ────────────────────────────────────────────────────
-    # Frontier: (-h, tie_counter, state, first_action_taken)
-    counter  = itertools.count()
-    frontier: list = []
-    visited  = set()
-
-    # Seed frontier with depth-1 successors
-    for act in my_actions:
-        if time.time() >= deadline:
-            break
-        opp_act = _predict_opponent_action(
-            state, board, max_steps, opponent_perspective, act, perspective
-        )
-        if perspective == 'A':
-            ns = resolve_joint_action(state, act, opp_act, board)
-        else:
-            ns = resolve_joint_action(state, opp_act, act, board)
-
-        h = competitive_heuristic(ns, board, perspective, max_steps)
-        new_my_pos = ns.agent_a if perspective == 'A' else ns.agent_b
-        if new_my_pos in recent_positions:
-            h -= _LOOP_PENALTY
-
-        heapq.heappush(frontier, (-h, next(counter), ns, act))
-        visited.add(ns)
-
-    while frontier and time.time() < deadline:
-        neg_h, _, current, first_action = heapq.heappop(frontier)
-        h_val = -neg_h
-
-        if h_val > best_h:
-            best_h      = h_val
-            best_action = first_action
-
-        if current.is_terminal(max_steps):
-            continue
-
-        curr_my_pos  = current.agent_a if perspective == 'A' else current.agent_b
-        curr_opp_pos = current.agent_b if perspective == 'A' else current.agent_a
-        curr_acts    = get_valid_actions(curr_my_pos, curr_opp_pos, current.boxes, board)
-
-        for act in curr_acts:
-            if time.time() >= deadline:
-                break
-            opp_act = _predict_opponent_action(
-                current, board, max_steps, opponent_perspective, act, perspective
-            )
-            if perspective == 'A':
-                ns = resolve_joint_action(current, act, opp_act, board)
+        if depth == 0 or curr.is_terminal(max_steps):
+            if curr._hash in heuristic_cache:
+                val = heuristic_cache[curr._hash]
             else:
-                ns = resolve_joint_action(current, opp_act, act, board)
+                val = competitive_heuristic(curr, board, perspective, max_steps)
+                heuristic_cache[curr._hash] = val
+                
+            if ai_type != "aggressive":
+                my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
+                if my_pos in recent_positions:
+                    val -= LOOP_PENALTY
+                    
+            tt[board_key] = (0, val, Action.WAIT)
+            return val
 
-            if ns in visited:
-                continue
-            visited.add(ns)
+        my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
+        op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
+        
+        if ai_type == "aggressive":
+            op_pos = (-1, -1)
+        
+        if is_max:
+            acts = get_valid_actions(my_pos, op_pos, curr.boxes, board)
+            if not acts:
+                acts = [Action.WAIT]
+                
+            # PV Ordering
+            if pv_action in acts:
+                acts.remove(pv_action)
+                acts.insert(0, pv_action)
+                
+            best_val = -float('inf')
+            best_act = acts[0]
+            
+            for act in acts:
+                if ai_type == "aggressive":
+                    # Assume opponent yields completely (ignore them)
+                    ns = _single_agent_transition(curr, act, perspective, board)
+                    # Next is max (single-agent search)
+                    val = _state_value(ns, depth - 1, True)
+                else:
+                    # Transition to MIN node
+                    val = _min_value(curr, depth, act)
+                    
+                if val > best_val:
+                    best_val = val
+                    best_act = act
+                    
+            tt[board_key] = (depth, best_val, best_act)
+            return best_val
+            
+    def _min_value(curr: CompetitiveState, depth: int, max_act: Action) -> float:
+        my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
+        op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
+        
+        acts = get_valid_actions(op_pos, my_pos, curr.boxes, board)
+        if not acts:
+            acts = [Action.WAIT]
+            
+        worst_val = float('inf')
+        for op_act in acts:
+            ns = resolve_joint_action(
+                curr, 
+                max_act if perspective == 'A' else op_act, 
+                op_act if perspective == 'A' else max_act, 
+                board
+            )
+            # Transition to MAX node
+            val = _state_value(ns, depth - 1, True)
+            if val < worst_val:
+                worst_val = val
+        return worst_val
 
-            h = competitive_heuristic(ns, board, perspective, max_steps)
-            new_my_pos = ns.agent_a if perspective == 'A' else ns.agent_b
-            if new_my_pos in recent_positions:
-                h -= _LOOP_PENALTY
-
-            heapq.heappush(frontier, (-h, next(counter), ns, first_action))
-
-    return best_action
+    # ITERATIVE DEEPENING
+    best_act_overall = Action.WAIT
+    reached_depth = 0
+    my_pos = state.agent_a if perspective == 'A' else state.agent_b
+    op_pos = state.agent_b if perspective == 'A' else state.agent_a
+    
+    if ai_type == "aggressive":
+        op_pos = (-1, -1)
+        
+    root_acts = get_valid_actions(my_pos, op_pos, state.boxes, board)
+    
+    if banned_actions:
+        root_acts = [a for a in root_acts if a not in banned_actions]
+    
+    if not root_acts:
+        return Action.WAIT
+        
+    stable_count = 0
+    prev_best = None
+    
+    try:
+        for d in range(1, MAX_SEARCH_DEPTH + 1):
+            board_key = state._hash ^ (hash(True))
+            pv = tt.get(board_key, (0, 0, None))[2]
+            if pv in root_acts:
+                root_acts.remove(pv)
+                root_acts.insert(0, pv)
+                
+            best_val = -float('inf')
+            best_act = root_acts[0]
+            
+            for act in root_acts:
+                if ai_type == "aggressive":
+                    ns = _single_agent_transition(state, act, perspective, board)
+                    val = _state_value(ns, d - 1, True)
+                else:
+                    val = _min_value(state, d, act)
+                    
+                if val > best_val:
+                    best_val = val
+                    best_act = act
+                    
+            best_act_overall = best_act
+            reached_depth = d
+            tt[board_key] = (d, best_val, best_act)
+            
+            # ── Adaptive Search Depth ──
+            if best_act == prev_best:
+                stable_count += 1
+            else:
+                stable_count = 0
+            prev_best = best_act
+            
+            # Stop early if the best action has been stable for 2 depths (so 3 total identical depths)
+            # AND the action is just a walking move (not pushing a box).
+            # Deep search is unreliable for pure walking because the opponent will modify the board.
+            # We want to reserve deep search (and time) for actual box pushes and tactical encounters.
+            if d >= 6 and stable_count >= 2:
+                dest = _step(my_pos, best_act)
+                is_push = (dest in state.boxes)
+                if not is_push:
+                    break
+                    
+    except _Deadline:
+        pass
+        
+    print(f"Agent {perspective} [{ai_type}] reached depth {reached_depth}")
+    return best_act_overall
 
 
 class AgentA:
     """
-    Agent A controller.  Maintains its own position history to detect and
-    escape loops.  Called once per game step via `choose_action()`.
+    Agent A controller. Uses a global Transposition Table and Heuristic Cache
+    to retain knowledge across turns.
     """
 
-    def __init__(self):
+    def __init__(self, ai_type: str = "aggressive"):
+        self.ai_type = ai_type
         self._history: Deque[Tuple[int, int]] = deque(maxlen=4)
+        self.tt: Dict[int, Tuple[int, float, Action]] = {}
+        self.heuristic_cache: Dict[int, float] = {}
 
     def choose_action(
         self,
         state: CompetitiveState,
         board: Board,
         max_steps: int,
+        banned_actions: List[Action] = None
     ) -> Action:
-        action = _gbfs_best_action(
+        
+        # Optional: prevent TT from growing to infinity (unlikely in short matches, but safe)
+        if len(self.tt) > 500000:
+            self.tt.clear()
+            
+        action = best_action(
             state, board, max_steps,
             perspective='A',
-            opponent_perspective='B',
             recent_positions=self._history,
+            ai_type=self.ai_type,
+            tt=self.tt,
+            heuristic_cache=self.heuristic_cache,
+            banned_actions=banned_actions
         )
-        # Record where we expect to move (optimistically — transition may block us,
-        # but it still breaks the pattern)
+        
         dx, dy = action.value
         expected = (state.agent_a[0] + dx, state.agent_a[1] + dy)
         self._history.append(state.agent_a)
+        
         return action

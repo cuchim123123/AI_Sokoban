@@ -1,36 +1,48 @@
 """
-Agent B controller — Greedy Best-First Search (GBFS).
-
-Separate source file as required by Requirement 8, so different student
-groups can swap in their own implementations without touching the game engine.
+Agent B controller.
+Delegates to the shared `best_action` search function in agent_a.py.
 """
 from collections import deque
-from typing import Deque, Tuple
-
+from typing import Deque, Tuple, Dict
 from src.competitive.state import Action, Board, CompetitiveState
-from src.competitive.agent_a import _gbfs_best_action
+from src.competitive.agent_a import best_action
 
 
 class AgentB:
     """
-    Agent B controller.  Mirrors AgentA's GBFS but from B's perspective.
-    Maintains its own position history for loop detection.
+    Agent B controller. Uses a global Transposition Table and Heuristic Cache
+    to retain knowledge across turns.
     """
 
-    def __init__(self):
+    def __init__(self, ai_type: str = "aggressive"):
+        self.ai_type = ai_type
         self._history: Deque[Tuple[int, int]] = deque(maxlen=4)
+        self.tt: Dict[int, Tuple[int, float, Action]] = {}
+        self.heuristic_cache: Dict[int, float] = {}
 
     def choose_action(
         self,
         state: CompetitiveState,
         board: Board,
         max_steps: int,
+        banned_actions: list = None
     ) -> Action:
-        action = _gbfs_best_action(
+        
+        if len(self.tt) > 500000:
+            self.tt.clear()
+
+        action = best_action(
             state, board, max_steps,
-            perspective='B',
-            opponent_perspective='A',
+            perspective="B",
             recent_positions=self._history,
+            ai_type=self.ai_type,
+            tt=self.tt,
+            heuristic_cache=self.heuristic_cache,
+            banned_actions=banned_actions
         )
+
+        dx, dy = action.value
+        expected = (state.agent_b[0] + dx, state.agent_b[1] + dy)
         self._history.append(state.agent_b)
+
         return action

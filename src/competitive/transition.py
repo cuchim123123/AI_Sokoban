@@ -24,12 +24,12 @@ def _step(pos: Tuple[int, int], action: Action) -> Tuple[int, int]:
 
 # ── Core transition ───────────────────────────────────────────────────────────
 
-def resolve_joint_action(
+def resolve_joint_action_outcome(
     state: CompetitiveState,
     action_a: Action,
     action_b: Action,
     board: Board,
-) -> CompetitiveState:
+):
     """
     Deterministic joint transition.  Returns next CompetitiveState (step+1).
     All conflict rules produce no-ops for the conflicting agents.
@@ -58,16 +58,12 @@ def resolve_joint_action(
         if dest in board.walls:
             return False
         if push_box is None:
-            # Simple move: destination must not be occupied by other agent
-            if dest == other_pos:
-                return False
+            pass # Moved to inter-agent rules
         else:
-            # Push: box destination must be free of walls, other agent, other boxes
+            # Push: box destination must be free of walls and other boxes
             if push_dest_cell in board.walls:
                 return False
             if push_dest_cell in boxes:
-                return False
-            if push_dest_cell == other_pos:   # Rule 7.5
                 return False
         return True
 
@@ -76,30 +72,34 @@ def resolve_joint_action(
 
     # ── 4. Inter-agent conflict rules ─────────────────────────────────────────
 
-    # Rule 7.1 — both target the same destination cell (includes one WAITing
-    # at a cell the other tries to enter, which is caught by physical check above,
-    # but also the symmetric case both moving to the same empty cell)
+    conflict_occurred = False
+
+    # Rule 7.1 — both target the same destination cell
     if valid_a and valid_b and dest_a == dest_b:
-        # Both are heading for the same cell (or both staying — impossible conflict)
         if action_a != Action.WAIT or action_b != Action.WAIT:
             valid_a = valid_b = False
+            conflict_occurred = True
 
     # Rule 7.2 — swap
     if valid_a and valid_b:
         if dest_a == pos_b and dest_b == pos_a:
             valid_a = valid_b = False
+            conflict_occurred = True
 
     # Rules 7.3 / 7.4 — both push the same box (any direction)
     if valid_a and valid_b and push_a_box is not None and push_b_box is not None:
         if push_a_box == push_b_box:
             valid_a = valid_b = False
+            conflict_occurred = True
 
-    # Cross-check: A pushes box to where B is simultaneously moving (and vice versa)
+    # Cross-check: A pushes box to where B is simultaneously moving or waiting
     if valid_a and valid_b:
-        if push_a_dest is not None and push_a_dest == dest_b and action_b != Action.WAIT:
+        if push_a_dest is not None and push_a_dest == dest_b:
             valid_a = False
-        if push_b_dest is not None and push_b_dest == dest_a and action_a != Action.WAIT:
+            conflict_occurred = True
+        if push_b_dest is not None and push_b_dest == dest_a:
             valid_b = False
+            conflict_occurred = True
 
     # Re-validate: after one side fails, the other might now be free
     # (e.g. B fails → A can move to what was B's destination)
@@ -146,7 +146,7 @@ def resolve_joint_action(
         committed_push_b_box, committed_push_b_dest,
     )
 
-    return CompetitiveState(
+    ns = CompetitiveState(
         agent_a=new_pos_a,
         agent_b=new_pos_b,
         boxes=new_boxes_fs,
@@ -154,6 +154,21 @@ def resolve_joint_action(
         boxes_on_goals_b=new_bgb,
         step=state.step + 1,
     )
+    
+    class Outcome:
+        pass
+    out = Outcome()
+    out.state = ns
+    out.conflict = conflict_occurred
+    return out
+
+def resolve_joint_action(
+    state: CompetitiveState,
+    action_a: Action,
+    action_b: Action,
+    board: Board,
+) -> CompetitiveState:
+    return resolve_joint_action_outcome(state, action_a, action_b, board).state
 
 
 # ── Credit bookkeeping ────────────────────────────────────────────────────────

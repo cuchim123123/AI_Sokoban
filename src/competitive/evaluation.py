@@ -1,42 +1,34 @@
-"""
-Competitive evaluation heuristic for GBFS.
-
-h(s) from Agent A's perspective:
-    W_SCORE  * time_weight * (score_A - score_B)
-  + W_PUSH   * (score_A - score_B)           [stacking bonus]
-  + W_CHAIN  * (chain_A - chain_B)           [agent→box→goal chain proximity]
-  + W_STEAL  * steal_opportunity_A
-  - W_DEFEND * steal_opportunity_B
-  - W_DEAD   * deadlock_count
-  + W_MOB    * (mobility_A - mobility_B)
-
-The key is W_CHAIN uses the full push chain:
-    chain = 1/(1 + dist(agent, push_pos)) + 1/(1 + dist(box, goal))
-where push_pos is the cell BEHIND the box relative to the goal.
-"""
-from typing import Tuple, FrozenSet, Optional
+from typing import FrozenSet, Tuple
 from src.competitive.state import CompetitiveState, Board
 
-W_SCORE    = 200
-W_PUSH     = 60    # very strong reward per box on goal
-W_CHAIN    = 30    # reward for agent-box-goal chain proximity
-W_STEAL    = 5     # small steal incentive (steal only when worthwhile)
-W_DEFEND   = 4
-W_OFF_GOAL = 8     # penalty per unplaced box that is far from all goals
-W_MOB      = 1
-W_DEAD     = 60
+# ── Heuristic Weights ─────────────────────────────────────────────────────────
+# These constants define the relative importance of different strategic goals.
+# Tweak these to change the AI's behavior.
+
+W_SCORE      = 1000.0   # Reward for each point (box on goal)
+W_CHAIN      = 150.0    # Reward for being in position to push an unplaced box to a goal
+W_STEAL      = 120.0    # Reward for being in position to steal an opponent's box
+W_GUARD      = 80.0     # Reward for guarding your own scored boxes
+W_OFF_GOAL   = 10.0     # Penalty for pushing boxes away from goals (reduces scatter)
+W_DEAD       = 10000.0  # Massive penalty for causing a deadlock (permanently stuck box)
+W_MOBILITY   = 2.0      # Small reward for having more movement options (prevents getting trapped)
+
+_UNREACHABLE = 9999     # Distance constant for unreachable states
+# ─────────────────────────────────────────────────────────────────────────────
 
 
-
-
-
-def _is_corner_deadlock(box: Tuple[int, int], board: Board) -> bool:
-    if box in board.goals:
-        return False
-    bx, by = box
-    wall_h = (bx - 1, by) in board.walls or (bx + 1, by) in board.walls
-    wall_v = (bx, by - 1) in board.walls or (bx, by + 1) in board.walls
-    return wall_h and wall_v
+def _deadlock_count(boxes: FrozenSet[Tuple[int, int]], board: Board) -> int:
+    """
+    Count the number of boxes that are permanently deadlocked.
+    A box is deadlocked if it cannot be pushed to ANY goal on the board.
+    This safely ignores boxes that are ALREADY on goals (since push_dist to its own cell is 0).
+    """
+    count = 0
+    for box in boxes:
+        # If the box is unreachable to ALL goals via pushing, it's deadlocked.
+        if all(board.push_dist(box, g) >= _UNREACHABLE for g in board.goals):
+            count += 1
+    return count
 
 
 def _push_chain_score(
@@ -46,62 +38,74 @@ def _push_chain_score(
     occupied_goals: FrozenSet[Tuple[int, int]],
 ) -> float:
     """
-    Directional push-chain score.
-
-    For each (box, goal) pair compute:
-        push_dir     = unit vector from box toward goal (clamped to 4 directions)
-        approach_pos = box - push_dir  (cell agent must stand on to push)
-        score = 1/(1 + dist(box, goal)) + 0.8/(1 + dist(agent, approach_pos))
-
-    Using approach_pos instead of raw box position means the heuristic
-    rewards being on the CORRECT SIDE of the box, eliminating wasted
-    repositioning moves.
+    Reward for being well-positioned to push an unplaced box to a free goal.
+    Uses proper `push_dist` to ensure we don't try to push unpushable boxes.
     """
     free_goals = board.goals - occupied_goals
-    unplaced   = boxes - occupied_goals
+    unplaced = boxes - occupied_goals
 
     if not free_goals or not unplaced:
         return 0.0
 
-    pairs = []
+    best_scores = []
     for box in unplaced:
-        best_score = -1.0
+        best_for_box = -1.0
         for goal in free_goals:
-            box_to_goal_d = board.dist(box, goal)
+            # How many actual PUSHES required to get the box to this goal?
+            pushes = board.push_dist(box, goal)
+            if pushes >= _UNREACHABLE:
+                continue
+            
+            # Find which direction we should push the box FIRST to optimally reach the goal.
+            # A good heuristic is to look at adjacent cells and see which one strictly reduces push_dist.
+            best_approach_dist = _UNREACHABLE
+            for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
+                push_dest = (box[0] + dx, box[1] + dy)
+                if board.push_dist(push_dest, goal) < pushes:
+                    # To push the box to push_dest, agent must stand at (box[0]-dx, box[1]-dy)
+                    approach = (box[0] - dx, box[1] - dy)
+                    if approach not in board.walls:
+                        d = board.dist(agent_pos, approach)
+                        if d < best_approach_dist:
+                            best_approach_dist = d
 
-            # Determine the dominant push direction (horizontal or vertical)
-            dx = goal[0] - box[0]
-            dy = goal[1] - box[1]
+            if best_approach_dist < _UNREACHABLE:
+                # Score combines box proximity to goal, and agent proximity to the CORRECT push side
+                score = 1.0 / (1 + pushes) + 0.8 / (1 + best_approach_dist)
+                if score > best_for_box:
+                    best_for_box = score
 
-            if abs(dx) >= abs(dy):
-                # Horizontal push is primary
-                push_dir = (1 if dx > 0 else -1, 0)
-            else:
-                # Vertical push is primary
-                push_dir = (0, 1 if dy > 0 else -1)
+        if best_for_box > 0:
+            best_scores.append(best_for_box)
 
-            # Cell the agent must occupy to perform this push
-            approach = (box[0] - push_dir[0], box[1] - push_dir[1])
+    best_scores.sort(reverse=True)
+    return sum(best_scores[:2])  # Consider top 2 opportunities
 
-            # If approach is a wall, try the other axis
-            if approach in board.walls:
-                if abs(dx) >= abs(dy):
-                    push_dir = (0, 1 if dy > 0 else (-1 if dy < 0 else 1))
-                else:
-                    push_dir = (1 if dx > 0 else (-1 if dx < 0 else 1), 0)
-                approach = (box[0] - push_dir[0], box[1] - push_dir[1])
 
-            agent_to_approach = board.dist(agent_pos, approach)
-            score = 1.0 / (1 + box_to_goal_d) + 0.8 / (1 + agent_to_approach)
+def _interact_score(
+    agent_pos: Tuple[int, int],
+    target_boxes: FrozenSet[Tuple[int, int]],
+    board: Board,
+) -> float:
+    """
+    General score for being close to a specific set of boxes (used for stealing or guarding).
+    Rewards the agent for being on a valid push-approach cell next to the target box.
+    """
+    if not target_boxes:
+        return 0.0
 
-            if score > best_score:
-                best_score = score
-
-        if best_score > 0:
-            pairs.append(best_score)
-
-    pairs.sort(reverse=True)
-    return sum(pairs[:2])
+    best = 0.0
+    for box in target_boxes:
+        for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
+            approach = (box[0] - dx, box[1] - dy)
+            push_to = (box[0] + dx, box[1] + dy)
+            if approach not in board.walls and push_to not in board.walls:
+                d = board.dist(agent_pos, approach)
+                if d < _UNREACHABLE:
+                    score = 1.0 / (1 + d)
+                    if score > best:
+                        best = score
+    return best
 
 
 def _off_goal_penalty(
@@ -109,108 +113,35 @@ def _off_goal_penalty(
     board: Board,
     occupied_goals: FrozenSet[Tuple[int, int]],
 ) -> float:
-    """
-    For each unplaced box, compute its distance to the nearest goal.
-    Return a penalty proportional to that distance — discourages pushing
-    boxes away from goals into useless corners.
-    """
+    """Discourages scattering boxes away from goals into corners."""
     unplaced = boxes - occupied_goals
     if not unplaced:
         return 0.0
+    
     total = 0.0
     for box in unplaced:
-        min_d = min(board.dist(box, g) for g in board.goals)
+        # Use push_dist if possible, fallback to walking dist
+        min_d = min(board.push_dist(box, g) for g in board.goals)
+        if min_d >= _UNREACHABLE:
+            min_d = min(board.dist(box, g) for g in board.goals)
         total += min_d
     return total
 
 
-
-def _steal_score(
-    agent_pos: Tuple[int, int],
-    opponent_completed: FrozenSet[Tuple[int, int]],
-    board: Board,
-    free_goals: FrozenSet[Tuple[int, int]],
-) -> float:
-    """
-    Directional steal score.
-
-    For each opponent completed box:
-      - If there is a free goal, find the best push direction that moves the
-        box TOWARD that free goal, and reward agent proximity to the correct
-        approach position (same logic as _push_chain_score).
-      - If no free goal exists, fall back to rewarding any pushable direction
-        (at least get it off the goal so our score increases).
-
-    This prevents the agent from approaching from the wrong side and pushing
-    the stolen box into a deadlock wall.
-    """
-    if not opponent_completed:
-        return 0.0
-
-    best = 0.0
-    for box in opponent_completed:
-        if free_goals:
-            # Find push direction that moves box closest to a free goal
-            box_best = -1.0
-            for goal in free_goals:
-                dx = goal[0] - box[0]
-                dy = goal[1] - box[1]
-                if abs(dx) >= abs(dy):
-                    push_dir = (1 if dx > 0 else -1, 0)
-                else:
-                    push_dir = (0, 1 if dy > 0 else -1)
-
-                approach = (box[0] - push_dir[0], box[1] - push_dir[1])
-                push_to  = (box[0] + push_dir[0], box[1] + push_dir[1])
-
-                # Approach must be floor, push destination must be floor
-                if approach in board.walls or push_to in board.walls:
-                    # Try opposite axis
-                    if abs(dx) >= abs(dy):
-                        push_dir = (0, 1 if dy > 0 else (-1 if dy < 0 else 1))
-                    else:
-                        push_dir = (1 if dx > 0 else (-1 if dx < 0 else 1), 0)
-                    approach = (box[0] - push_dir[0], box[1] - push_dir[1])
-                    push_to  = (box[0] + push_dir[0], box[1] + push_dir[1])
-                    if approach in board.walls or push_to in board.walls:
-                        continue
-
-                d = board.dist(agent_pos, approach)
-                # Reward both proximity to approach AND box proximity to goal
-                box_to_goal = board.dist(box, goal)
-                score = 0.7 / (1 + d) + 0.3 / (1 + box_to_goal)
-                box_best = max(box_best, score)
-
-            if box_best > 0:
-                best = max(best, box_best)
-        else:
-            # No free goal — just get the box off the goal (any pushable direction)
-            for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
-                approach = (box[0] - dx, box[1] - dy)
-                push_to  = (box[0] + dx, box[1] + dy)
-                if approach not in board.walls and push_to not in board.walls:
-                    d = board.dist(agent_pos, approach)
-                    best = max(best, 0.5 / (1 + d))
-                    break
-
-    return best
-
-
-
 def _mobility(
     pos: Tuple[int, int],
-    other_pos: Tuple[int, int],
-    boxes: FrozenSet,
+    boxes: FrozenSet[Tuple[int, int]],
     board: Board,
 ) -> int:
+    """Count immediately available non-stuck moves from pos."""
     count = 0
     for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
         dest = (pos[0] + dx, pos[1] + dy)
-        if dest in board.walls or dest == other_pos:
+        if dest in board.walls:
             continue
         if dest in boxes:
-            pd = (dest[0] + dx, dest[1] + dy)
-            if pd in board.walls or pd in boxes or pd == other_pos:
+            push = (dest[0] + dx, dest[1] + dy)
+            if push in board.walls or push in boxes:
                 continue
         count += 1
     return count
@@ -228,39 +159,50 @@ def competitive_heuristic(
     """
     score_a = state.score_a()
     score_b = state.score_b()
-    occupied_goals = state.boxes_on_goals_a | state.boxes_on_goals_b
+    occupied = state.boxes_on_goals_a | state.boxes_on_goals_b
 
+    # Time weight: securing a score earlier is worth more, up to a 50% bonus.
     remaining = max_steps - state.step
     time_weight = 1.0 + 0.5 * (remaining / max(max_steps, 1))
 
-    # Push-chain proximity (agent → box → goal)
-    chain_a = _push_chain_score(state.agent_a, state.boxes, board, occupied_goals)
-    chain_b = _push_chain_score(state.agent_b, state.boxes, board, occupied_goals)
+    # Push-chain: positioning to score neutral boxes
+    chain_a = _push_chain_score(state.agent_a, state.boxes, board, occupied)
+    chain_b = _push_chain_score(state.agent_b, state.boxes, board, occupied)
 
-    # Steal opportunity (directional — approach from correct side toward a free goal)
-    free_goals = board.goals - occupied_goals
-    steal_a = _steal_score(state.agent_a, state.boxes_on_goals_b, board, free_goals)
-    steal_b = _steal_score(state.agent_b, state.boxes_on_goals_a, board, free_goals)
+    # Steal: positioning to knock opponent's box off a goal
+    steal_a = _interact_score(state.agent_a, state.boxes_on_goals_b, board)
+    steal_b = _interact_score(state.agent_b, state.boxes_on_goals_a, board)
+    
+    # Guard: positioning to defend own boxes on goals from being stolen
+    guard_a = _interact_score(state.agent_a, state.boxes_on_goals_a, board)
+    guard_b = _interact_score(state.agent_b, state.boxes_on_goals_b, board)
 
-    # Off-goal scatter penalty (same for both — applied symmetrically)
-    off_goal = _off_goal_penalty(state.boxes, board, occupied_goals)
+    off_goal = _off_goal_penalty(state.boxes, board, occupied)
+    dead = _deadlock_count(state.boxes, board)
 
-    # Deadlock
-    dead = sum(1 for box in state.boxes if _is_corner_deadlock(box, board))
+    mob_a = _mobility(state.agent_a, state.boxes, board)
+    mob_b = _mobility(state.agent_b, state.boxes, board)
 
-    # Mobility
-    mob_a = _mobility(state.agent_a, state.agent_b, state.boxes, board)
-    mob_b = _mobility(state.agent_b, state.agent_a, state.boxes, board)
+    if perspective == 'A':
+        own_score, opp_score = score_a, score_b
+        own_chain, opp_chain = chain_a, chain_b
+        own_steal, opp_steal = steal_a, steal_b
+        own_guard, opp_guard = guard_a, guard_b
+        own_mob, opp_mob     = mob_a, mob_b
+    else:
+        own_score, opp_score = score_b, score_a
+        own_chain, opp_chain = chain_b, chain_a
+        own_steal, opp_steal = steal_b, steal_a
+        own_guard, opp_guard = guard_b, guard_a
+        own_mob, opp_mob     = mob_b, mob_a
 
-    h_a = (
-        W_SCORE    * time_weight * (score_a - score_b)
-        + W_PUSH   * (score_a - score_b)
-        + W_CHAIN  * (chain_a - chain_b)
-        + W_STEAL  * steal_a
-        - W_DEFEND * steal_b
-        - W_OFF_GOAL * off_goal     # discourages pushing boxes into useless spots
-        - W_DEAD   * dead
-        + W_MOB    * (mob_a - mob_b)
+    return (
+        W_SCORE * time_weight * (own_score - opp_score)
+        + W_CHAIN * (own_chain - opp_chain)
+        + W_STEAL * own_steal - (W_STEAL * opp_steal)
+        + W_GUARD * own_guard - (W_GUARD * opp_guard)
+        + W_MOBILITY * (own_mob - opp_mob)
+        - W_OFF_GOAL * off_goal
+        - W_DEAD * dead
+        - 0.1 * state.step
     )
-
-    return h_a if perspective == 'A' else -h_a

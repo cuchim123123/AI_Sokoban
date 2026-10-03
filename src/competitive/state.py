@@ -15,7 +15,7 @@ class Action(Enum):
 
 class Board:
     """Static board information — walls, goals, dimensions. Created once and shared."""
-    __slots__ = ("walls", "goals", "width", "height", "floor_cells", "distances")
+    __slots__ = ("walls", "goals", "width", "height", "floor_cells", "distances", "push_costs")
 
     def __init__(
         self,
@@ -51,9 +51,17 @@ class Board:
                         queue.append(nxt)
             self.distances[start] = distances
 
+        # Precompute push distances
+        from src.heuristics.push_distance import precompute_push_costs
+        self.push_costs = precompute_push_costs(self)
+
     def dist(self, a: Tuple[int, int], b: Tuple[int, int]) -> int:
         """Returns the legal shortest path distance between a and b, or 9999 if unreachable."""
         return self.distances.get(a, {}).get(b, 9999)
+
+    def push_dist(self, box: Tuple[int, int], goal: Tuple[int, int]) -> int:
+        """Returns min pushes to move a box to the goal, or 9999 if unreachable."""
+        return self.push_costs.get(goal, {}).get(box, 9999)
 
 class CompetitiveState:
     """
