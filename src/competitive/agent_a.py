@@ -54,7 +54,12 @@ def best_action(
         out = resolve_joint_action_outcome(state, act_a, act_b, board)
         ns = out.state
         
-        val = competitive_heuristic(ns, board, perspective, max_steps)
+        if ns._hash in heuristic_cache:
+            val = heuristic_cache[ns._hash]
+        else:
+            val = competitive_heuristic(ns, board, perspective, max_steps)
+            heuristic_cache[ns._hash] = val
+            
         new_my_pos = ns.agent_a if perspective == 'A' else ns.agent_b
         if new_my_pos in recent_positions:
             val -= 30
@@ -92,7 +97,12 @@ def best_action(
                 continue
             visited.add(ns._hash)
             
-            n_val = competitive_heuristic(ns, board, perspective, max_steps)
+            if ns._hash in heuristic_cache:
+                n_val = heuristic_cache[ns._hash]
+            else:
+                n_val = competitive_heuristic(ns, board, perspective, max_steps)
+                heuristic_cache[ns._hash] = n_val
+                
             if n_val > best_overall_val:
                 best_overall_val = n_val
                 best_overall_act = first_act
@@ -121,8 +131,8 @@ class AgentA:
         banned_actions: List[Action] = None
     ) -> Action:
         
-        if len(self.tt) > 500000:
-            self.tt.clear()
+        if len(self.heuristic_cache) > 500000:
+            self.heuristic_cache.clear()
             
         action = best_action(
             state, board, max_steps,

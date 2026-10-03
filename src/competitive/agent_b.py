@@ -27,8 +27,8 @@ class AgentB:
         banned_actions: list = None
     ) -> Action:
         
-        if len(self.tt) > 500000:
-            self.tt.clear()
+        if len(self.heuristic_cache) > 500000:
+            self.heuristic_cache.clear()
 
         action = best_action(
             state, board, max_steps,
