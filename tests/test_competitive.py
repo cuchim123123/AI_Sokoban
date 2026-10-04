@@ -2,6 +2,7 @@ import unittest
 from collections import deque
 
 from src.competitive.agent_a import _cache_key, _robust_successor, best_action
+from src.competitive.evaluation import _joint_interact_scores, competitive_heuristic
 from src.competitive.state import Action, Board, CompetitiveState
 from src.competitive.transition import get_valid_actions, resolve_joint_action_outcome
 
@@ -139,6 +140,36 @@ class TestCompetitiveRules(unittest.TestCase):
             time_limit=0.01,
         )
         self.assertNotIn(action, (Action.NORTH, Action.SOUTH))
+
+    def test_reachable_opponent_goal_has_steal_value(self):
+        board = Board(
+            frozenset(
+                (x, y)
+                for x in range(7)
+                for y in range(7)
+                if x in (0, 6) or y in (0, 6)
+            ),
+            frozenset({(3, 3)}),
+            7,
+            7,
+        )
+        state = CompetitiveState(
+            (3, 2),
+            (5, 3),
+            frozenset({(3, 3)}),
+            frozenset(),
+            frozenset({(3, 3)}),
+            0,
+        )
+        steal, _ = _joint_interact_scores(
+            state.agent_a,
+            state.agent_b,
+            state.boxes_on_goals_b,
+            board,
+            20,
+        )
+        self.assertGreater(steal, 1000.0)
+        self.assertGreater(competitive_heuristic(state, board, "A", 20), -1000.0)
 
 
 if __name__ == "__main__":
