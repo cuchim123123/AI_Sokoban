@@ -230,6 +230,28 @@ class TestCompetitiveRules(unittest.TestCase):
         )
         self.assertNotEqual(action, Action.EAST)
 
+    def test_tied_agent_captures_adjacent_opponent_goal(self):
+        _, board = parse_competitive_map("maps/competitive/capacity_lab.txt")
+        state = CompetitiveState(
+            (7, 6),
+            (6, 5),
+            frozenset({(8, 8), (5, 5), (13, 5)}),
+            frozenset({(8, 8), (5, 5)}),
+            frozenset({(13, 5)}),
+            18,
+        )
+        action = best_action(
+            state,
+            board,
+            40,
+            "B",
+            deque(maxlen=4),
+            {},
+            {},
+            time_limit=0.15,
+        )
+        self.assertEqual(action, Action.WEST)
+
     def test_tied_agent_prefers_approaching_opponent_goal(self):
         _, board = parse_competitive_map("maps/competitive/capacity_lab.txt")
         state = CompetitiveState(

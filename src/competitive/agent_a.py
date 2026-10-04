@@ -7,7 +7,7 @@ from typing import Optional, Tuple, Deque, Dict, List
 
 from src.competitive.state import Action, Board, CompetitiveState
 from src.competitive.transition import get_valid_actions, resolve_joint_action_outcome
-from src.competitive.evaluation import competitive_heuristic
+from src.competitive.evaluation import competitive_heuristic, W_SCORE
 
 # ── Search Constants ──────────────────────────────────────────────────────────
 TIME_LIMIT = 0.90
@@ -65,6 +65,22 @@ def _pushes_own_finished_box(
         position[1] + action.value[1],
     )
     return destination in own_goals
+
+
+def _pushes_opponent_finished_box(state, action, perspective):
+    if action == Action.WAIT:
+        return False
+    position = state.agent_a if perspective == 'A' else state.agent_b
+    opponent_goals = (
+        state.boxes_on_goals_b
+        if perspective == 'A'
+        else state.boxes_on_goals_a
+    )
+    destination = (
+        position[0] + action.value[0],
+        position[1] + action.value[1],
+    )
+    return destination in opponent_goals
 
 
 def _push_approach_distance(pos, box, board):
@@ -171,6 +187,22 @@ def _robust_successor(
             effective_value += TACTICAL_PROGRESS_WEIGHT * (
                 target_cost_before - target_cost_after
             )
+
+        opponent_credits_before = (
+            curr.boxes_on_goals_b
+            if perspective == 'A'
+            else curr.boxes_on_goals_a
+        )
+        opponent_credits_after = (
+            next_state.boxes_on_goals_b
+            if perspective == 'A'
+            else next_state.boxes_on_goals_a
+        )
+        stolen_count = len(opponent_credits_before - opponent_credits_after)
+        if stolen_count:
+            # Removing an opponent point is strategically valuable even
+            # though the transition awards the box only after re-scoring it.
+            effective_value += W_SCORE * stolen_count
         if pushes_own_finished_box:
             # The opponent may steal a credited box, but an agent should not
             # voluntarily destroy its own score while pursuing another route.
@@ -219,6 +251,8 @@ def best_action(
     root_action_best_val = {act: -float('inf') for act in root_acts}
     root_action_revisits = {act: False for act in root_acts}
     root_action_progress = {act: 0 for act in root_acts}
+    own_score = state.score_a() if perspective == 'A' else state.score_b()
+    opponent_score = state.score_b() if perspective == 'A' else state.score_a()
 
     # Seed one frontier per root action. Keeping roots separate prevents a
     # temporarily unattractive but strategically necessary route from being
@@ -238,6 +272,16 @@ def best_action(
         after_cost = _tactical_cost(ns, board, perspective, target)
         if before_cost < 9999 and after_cost < 9999:
             root_action_progress[act] = before_cost - after_cost
+        if (
+            opponent_score >= own_score
+            and _pushes_opponent_finished_box(state, act, perspective)
+        ):
+            # A legal immediate capture is the clearest possible response to
+            # a tied or losing scoreboard. Prefer taking the point off the
+            # opponent now; the following search step plans the re-score.
+            root_action_progress[act] = max(
+                root_action_progress[act], 10000
+            )
         
         if val > root_action_best_val[act]:
             root_action_best_val[act] = val
