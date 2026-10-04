@@ -204,6 +204,7 @@ class CompetitiveApp:
     def __init__(self, map_file: str, max_steps: int, ai_a: str = "AI", ai_b: str = "AI"):
         pygame.init()
         pygame.display.set_caption("Sokoban — Competitive Mode")
+        pygame.key.set_repeat(200, 50)
 
         self.map_file = map_file
         self.max_steps = max_steps
@@ -324,6 +325,9 @@ class CompetitiveApp:
         self.initial_state, self.board = parse_competitive_map(self.map_file)
         self.state = self.initial_state
         self.prev_state = self.initial_state
+        self.box_owners = {}
+        self.history = [(self.state, self.box_owners, None)]
+        self.step_index = 0
         self.anim_t = 1.0
         
         self.computing = False
@@ -393,7 +397,7 @@ class CompetitiveApp:
                         sys.exit()
                     
                     if event.key == pygame.K_SPACE:
-                        if self.finished:
+                        if self.finished and self.step_index == len(self.history) - 1:
                             self.in_menu = True
                             self.screen = pygame.display.set_mode((1024, 768))
                         else:
@@ -404,6 +408,26 @@ class CompetitiveApp:
                         self.screen = pygame.display.set_mode((1024, 768))
                     elif event.key == pygame.K_r:
                         self._start_game()
+                    elif event.key == pygame.K_LEFT and not self.running:
+                        if self.step_index > 0:
+                            self.step_index -= 1
+                            self.prev_state = self.history[self.step_index + 1][0]
+                            self.state, self.box_owners, metric = self.history[self.step_index]
+                            self.anim_t = 0.0
+                            self.finished = self.state.is_terminal(self.max_steps)
+                            if metric:
+                                self._metrics = [m for _, _, m in self.history[1:self.step_index+1]]
+                            else:
+                                self._metrics = []
+                    elif event.key == pygame.K_RIGHT and not self.running:
+                        if self.step_index < len(self.history) - 1:
+                            self.prev_state = self.state
+                            self.step_index += 1
+                            self.state, self.box_owners, metric = self.history[self.step_index]
+                            self.anim_t = 0.0
+                            self.finished = self.state.is_terminal(self.max_steps)
+                            self._metrics = [m for _, _, m in self.history[1:self.step_index+1]]
+
                     
                     if self.running and not self.finished and self.anim_t >= 1.0 and not self.computing:
                         if self.agent_a is None:
@@ -468,7 +492,13 @@ class CompetitiveApp:
                 new_box_owners[nb] = "B"
         self.box_owners = new_box_owners
 
-        self._metrics.append((self.state.step, action_a, action_b, dt_a, dt_b))
+        metric = (self.state.step, action_a, action_b, dt_a, dt_b)
+        self._metrics = self._metrics[:self.step_index]
+        self._metrics.append(metric)
+
+        self.history = self.history[:self.step_index + 1]
+        self.history.append((self.state, self.box_owners, metric))
+        self.step_index += 1
 
         if self.state.is_terminal(self.max_steps):
             self.finished = True
