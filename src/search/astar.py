@@ -61,3 +61,11 @@ class AStarSearch(SearchAlgorithm):
                         heapq.heappush(frontier, (f_val, next(counter), child_node))
                     
         return None, 0, generated_states, expanded_states
+
+
+def astar_search(
+    initial_state: GameState,
+    board: Board,
+    heuristic: Callable[[GameState], float],
+) -> Tuple[Optional[List[Action]], int, int, int]:
+    return AStarSearch(heuristic).search(initial_state, board)

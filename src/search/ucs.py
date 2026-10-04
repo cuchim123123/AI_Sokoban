@@ -52,3 +52,10 @@ class UniformCostSearch(SearchAlgorithm):
                     heapq.heappush(frontier, (child_node.path_cost, next(counter), child_node))
                     
         return None, 0, generated_states, expanded_states
+
+
+def uniform_cost_search(
+    initial_state: GameState,
+    board: Board,
+) -> Tuple[Optional[List[Action]], int, int, int]:
+    return UniformCostSearch().search(initial_state, board)
