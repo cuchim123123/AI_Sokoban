@@ -256,8 +256,16 @@ def _best_yield_action(
         board,
         include_wait=False,
     )
+    own_goals = (
+        state.boxes_on_goals_a
+        if yielding_perspective == 'A'
+        else state.boxes_on_goals_b
+    )
     ranked = []
     for action in actions:
+        destination = _step(yielding_pos, action)
+        if destination in own_goals:
+            continue
         action_a = action if yielding_perspective == 'A' else winning_action
         action_b = winning_action if yielding_perspective == 'A' else action
         next_state = resolve_joint_action_outcome(
