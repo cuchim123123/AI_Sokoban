@@ -3,9 +3,8 @@ Agent controller — Greedy Best-First Search (GBFS).
 """
 import time
 import heapq
-import random
 from collections import deque
-from typing import Optional, Tuple, Deque, Dict, Any, List
+from typing import Optional, Tuple, Deque, Dict, List
 
 from src.competitive.state import Action, Board, CompetitiveState
 from src.competitive.transition import get_valid_actions, resolve_joint_action_outcome
@@ -15,49 +14,62 @@ from src.competitive.evaluation import competitive_heuristic
 TIME_LIMIT = 0.90
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _get_greedy_opp_act(
-    curr: CompetitiveState,
-    curr_my_pos,
-    curr_op_pos,
+def _cache_key(
+    state: CompetitiveState,
+    perspective: str,
+    max_steps: int,
+) -> tuple:
+    return (state._hash, perspective, max_steps)
+
+
+def _value(
+    state: CompetitiveState,
     board: Board,
     perspective: str,
     max_steps: int,
-    heuristic_cache: Dict[int, float]
-) -> Action:
-    """
-    Predict the opponent's next action by simulating joint transitions.
-    We pair each opponent action with a simple greedy own-action (move toward
-    the best-known target) so that conflict rules fire realistically.
-    The opponent wants to MINIMISE our heuristic value.
-    """
-    opp_acts = get_valid_actions(curr_op_pos, curr_my_pos, curr.boxes, board)
-    if not opp_acts:
-        return Action.WAIT
-    random.shuffle(opp_acts)
+    heuristic_cache: Dict[tuple, float],
+) -> float:
+    key = _cache_key(state, perspective, max_steps)
+    if key not in heuristic_cache:
+        heuristic_cache[key] = competitive_heuristic(
+            state, board, perspective, max_steps
+        )
+    return heuristic_cache[key]
 
-    # Use WAIT for own action in the opponent model — keeps the model honest
-    # without requiring a full nested greedy search (too expensive).
-    # This is simpler but already captures conflict rules correctly.
-    best_val_for_opp = float('inf')
-    best_act = opp_acts[0]
 
-    for act in opp_acts:
-        act_a = Action.WAIT if perspective == 'A' else act
-        act_b = act        if perspective == 'A' else Action.WAIT
+def _joint_action(state: CompetitiveState, perspective: str, own_action: Action, opp_action: Action):
+    if perspective == 'A':
+        return own_action, opp_action
+    return opp_action, own_action
 
-        ns = resolve_joint_action_outcome(curr, act_a, act_b, board, max_steps).state
-        key = ns.board_hash
-        if key in heuristic_cache:
-            val = heuristic_cache[key]
-        else:
-            val = competitive_heuristic(ns, board, perspective, max_steps)
-            heuristic_cache[key] = val
 
-        if val < best_val_for_opp:
-            best_val_for_opp = val
-            best_act = act
-
-    return best_act
+def _robust_successor(
+    curr: CompetitiveState,
+    own_action: Action,
+    board: Board,
+    perspective: str,
+    max_steps: int,
+    heuristic_cache: Dict[tuple, float],
+):
+    """Return the worst legal opponent response to one own action."""
+    my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
+    op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
+    opponent_actions = get_valid_actions(op_pos, my_pos, curr.boxes, board)
+    candidates = []
+    for opponent_action in opponent_actions:
+        action_a, action_b = _joint_action(
+            curr, perspective, own_action, opponent_action
+        )
+        outcome = resolve_joint_action_outcome(
+            curr, action_a, action_b, board, max_steps
+        )
+        next_state = outcome.state
+        candidates.append((
+            _value(next_state, board, perspective, max_steps, heuristic_cache),
+            opponent_action,
+            next_state,
+        ))
+    return min(candidates, key=lambda candidate: (candidate[0], candidate[1].value))
 
 
 def best_action(
@@ -67,13 +79,13 @@ def best_action(
     perspective: str,
     recent_positions: Deque[Tuple[int, int]],
     tt: Dict[int, Tuple[int, float, Action]],
-    heuristic_cache: Dict[int, float],
+    heuristic_cache: Dict[tuple, float],
     time_limit: float = TIME_LIMIT,
     banned_actions: List[Action] = None
 ) -> Action:
     deadline = time.time() + time_limit
     
-    # Priority queue for GBFS: (-heuristic_value, tiebreaker, state, first_action)
+    # Priority queue for GBFS: (-robust_value, tiebreaker, state, first_action)
     pq = []
     tiebreaker = 0
     
@@ -88,51 +100,18 @@ def best_action(
         root_acts = [a for a in root_acts if a not in banned_actions]
     if not root_acts:
         root_acts = [Action.NORTH]
-    random.shuffle(root_acts)
-        
     root_action_best_val = {act: -float('inf') for act in root_acts}
-    
-    # Initialize PQ with root's successors
-    opp_act = _get_greedy_opp_act(state, my_pos, op_pos, board, perspective, max_steps, heuristic_cache)
+
+    # Initialize PQ with the worst response for each own action.
     for act in root_acts:
-        act_a = act if perspective == 'A' else opp_act
-        act_b = opp_act if perspective == 'A' else act
-        
-        out = resolve_joint_action_outcome(state, act_a, act_b, board, max_steps)
-        ns = out.state
-        
-        # ── Cache lookup (keyed on board_hash, which excludes step) ──────────
-        # board_hash gives much higher cache hit rate: the same spatial board
-        # reached at different steps has the same heuristic value.
-        key = ns.board_hash
-        if key in heuristic_cache:
-            val = heuristic_cache[key]
-        else:
-            val = competitive_heuristic(ns, board, perspective, max_steps)
-            heuristic_cache[key] = val
+        val, _, ns = _robust_successor(
+            state, act, board, perspective, max_steps, heuristic_cache
+        )
 
         new_my_pos = ns.agent_a if perspective == 'A' else ns.agent_b
-        # Penalise revisiting real recent positions (not search-tree positions)
-        if new_my_pos in recent_positions and new_my_pos != my_pos:
-            val -= 300
-
-        # Smart yielding: if we stood still (e.g. collision), yield if we lack priority
-        if new_my_pos == my_pos:
-            a_has_priority = ((max_steps - state.step) % 2 != 0)
-            we_have_priority = a_has_priority if perspective == 'A' else not a_has_priority
-            if not we_have_priority:
-                val -= 10.0  # Big penalty: forces yielding
-            else:
-                val -= 0.1   # Tiny penalty: holds ground
-
-        # Small step cost to prefer shorter paths (much softer than before)
-        val -= (ns.step - state.step) * 0.3
         
         if val > root_action_best_val[act]:
             root_action_best_val[act] = val
-            
-        if state.step >= 6:
-            print(f"[{perspective}] Root {act} -> val {val} (new_pos {new_my_pos}, recent {list(recent_positions)})")
         heapq.heappush(pq, (-val, tiebreaker, ns, act))
         tiebreaker += 1
         visited.add(ns._hash)
@@ -149,45 +128,15 @@ def best_action(
         
         curr_my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
         curr_op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
-        
-        opp_act = _get_greedy_opp_act(curr, curr_my_pos, curr_op_pos, board, perspective, max_steps, heuristic_cache)
-        
         acts = get_valid_actions(curr_my_pos, curr_op_pos, curr.boxes, board)
-        random.shuffle(acts)
         for act in acts:
-            act_a = act if perspective == 'A' else opp_act
-            act_b = opp_act if perspective == 'A' else act
-            
-            out = resolve_joint_action_outcome(curr, act_a, act_b, board, max_steps)
-            ns = out.state
+            n_val, _, ns = _robust_successor(
+                curr, act, board, perspective, max_steps, heuristic_cache
+            )
             
             if ns._hash in visited:
                 continue
             visited.add(ns._hash)
-            
-            # ── Cache lookup (board_hash) ─────────────────────────────────
-            key = ns.board_hash
-            n_val = heuristic_cache.setdefault(
-                key, competitive_heuristic(ns, board, perspective, max_steps)
-            )
-
-            new_my_pos = ns.agent_a if perspective == 'A' else ns.agent_b
-            if new_my_pos in recent_positions and new_my_pos != curr_my_pos:
-                n_val -= 300
-                
-            # Smart yielding: if we stood still (e.g. collision), yield if we lack priority
-            if new_my_pos == curr_my_pos:
-                a_has_priority = ((max_steps - curr.step) % 2 != 0)
-                we_have_priority = a_has_priority if perspective == 'A' else not a_has_priority
-                if not we_have_priority:
-                    n_val -= 10.0  # Big penalty: forces yielding
-                else:
-                    n_val -= 0.1   # Tiny penalty: holds ground
-
-            # Small step cost: prefer shorter paths but not at the expense of strategy.
-            # We must accumulate this penalty from the ROOT, otherwise deep 6-step loops
-            # will have the same penalty as 1-step moves, causing pointless wandering.
-            n_val -= (ns.step - state.step) * 0.3
             
             if n_val > root_action_best_val[first_act]:
                 root_action_best_val[first_act] = n_val
@@ -195,10 +144,7 @@ def best_action(
             heapq.heappush(pq, (-n_val, tiebreaker, ns, first_act))
             tiebreaker += 1
 
-    best_act = max(root_action_best_val, key=root_action_best_val.get)
-
-    print(f"Agent {perspective} [GBFS] expanded {nodes_expanded} nodes, chose {best_act}")
-    return best_act
+    return max(root_action_best_val, key=root_action_best_val.get)
 
 
 class AgentA:
