@@ -4,6 +4,7 @@ Agent controller — Greedy Best-First Search (GBFS).
 import time
 from collections import deque
 from typing import Optional, Tuple, Deque, Dict, List
+from scipy.optimize import linear_sum_assignment
 
 from src.competitive.state import Action, Board, CompetitiveState
 from src.competitive.transition import get_valid_actions, resolve_joint_action_outcome
@@ -16,14 +17,15 @@ from src.competitive.evaluation import (
 # ── Search Constants ──────────────────────────────────────────────────────────
 TIME_LIMIT = 0.90
 SEARCH_DEPTH = 6
-MAX_SEARCH_DEPTH = 8
-BEAM_WIDTH = 24
+MAX_SEARCH_DEPTH = 3
+BEAM_WIDTH = 32
 BLOCKED_ACTION_PENALTY = 250.0
 TACTICAL_PROGRESS_WEIGHT = 20.0
 IMMEDIATE_FINISH_PRIORITY = 9000
 IMMEDIATE_STEAL_PRIORITY = 10000
 GUARD_DRIFT_PENALTY = 100.0
 STEAL_COST_MARGIN = 0
+ENDGAME_FINISH_STEPS = 20
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _cache_key(
@@ -53,6 +55,128 @@ def _joint_action(state: CompetitiveState, perspective: str, own_action: Action,
     if perspective == 'A':
         return own_action, opp_action
     return opp_action, own_action
+
+
+def _same_recent_position_and_board(
+    state: CompetitiveState,
+    recent_positions: Deque,
+    perspective: str,
+) -> bool:
+    """Detect a true revisit without rejecting progress on a changed board."""
+    position = state.agent_a if perspective == 'A' else state.agent_b
+    for entry in recent_positions:
+        if (
+            isinstance(entry, tuple)
+            and len(entry) == 2
+            and isinstance(entry[0], tuple)
+            and isinstance(entry[1], int)
+        ):
+            if entry[0] == position and entry[1] == state.board_hash:
+                return True
+        elif entry == position:
+            # Keep compatibility with callers that provide position-only history.
+            return True
+    return False
+
+
+def _reachable_region(
+    start: Tuple[int, int],
+    board: Board,
+    boxes,
+) -> set:
+    if start not in board.floor_cells:
+        return set()
+    region = {start}
+    pending = deque([start])
+    while pending:
+        position = pending.popleft()
+        for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
+            next_position = (position[0] + dx, position[1] + dy)
+            if (
+                next_position not in board.floor_cells
+                or next_position in boxes
+            ):
+                continue
+            if next_position not in region:
+                region.add(next_position)
+                pending.append(next_position)
+    return region
+
+
+def _agents_are_independent(
+    state: CompetitiveState,
+    board: Board,
+    perspective: str,
+    horizon: int = SEARCH_DEPTH,
+) -> bool:
+    """Use static opponent response when no interaction fits the search horizon."""
+    own_position = state.agent_a if perspective == 'A' else state.agent_b
+    opponent_position = state.agent_b if perspective == 'A' else state.agent_a
+    if (
+        own_position not in board.floor_cells
+        or opponent_position not in board.floor_cells
+    ):
+        return False
+    if board.dist(own_position, opponent_position) <= horizon:
+        return False
+
+    for box in state.boxes:
+        own_push_distance = 9999
+        opponent_push_distance = 9999
+        for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
+            approach = (box[0] - dx, box[1] - dy)
+            destination = (box[0] + dx, box[1] + dy)
+            if (
+                destination not in board.walls
+                and destination not in state.boxes
+            ):
+                own_push_distance = min(
+                    own_push_distance,
+                    board.dist(own_position, approach),
+                )
+                opponent_push_distance = min(
+                    opponent_push_distance,
+                    board.dist(opponent_position, approach),
+                )
+        if (
+            own_push_distance <= horizon
+            and opponent_push_distance <= horizon
+        ):
+            return False
+        if (
+            own_push_distance <= horizon
+            and board.dist(own_position, opponent_position) <= horizon + 2
+        ):
+            return False
+        if (
+            opponent_push_distance <= horizon
+            and board.dist(own_position, opponent_position) <= horizon + 2
+        ):
+            return False
+    return True
+
+
+def _assignment_capacity(
+    boxes,
+    goals,
+    board: Board,
+) -> int:
+    """Count how many remaining boxes can still receive distinct goals."""
+    if not boxes:
+        return 0
+    if not goals:
+        return 0
+    box_list = list(boxes)
+    goal_list = list(goals)
+    costs = [
+        [board.push_dist(box, goal) for goal in goal_list]
+        for box in box_list
+    ]
+    rows, columns = linear_sum_assignment(costs)
+    return sum(
+        costs[row][column] < 9999
+        for row, column in zip(rows, columns)
+    )
 
 
 def _pushes_own_finished_box(
@@ -141,6 +265,19 @@ def _finishes_neutral_box(
     )
 
 
+def _is_endgame_finish(
+    state: CompetitiveState,
+    action: Action,
+    board: Board,
+    perspective: str,
+    max_steps: int,
+) -> bool:
+    return (
+        max_steps - state.step <= ENDGAME_FINISH_STEPS
+        and _finishes_neutral_box(state, action, board, perspective)
+    )
+
+
 def _creates_deadlock(
     state: CompetitiveState,
     action: Action,
@@ -200,6 +337,32 @@ def _push_approach_distance(pos, box, board):
     return min(distances, default=9999)
 
 
+def _state_steal_cost(state, box, board, perspective, max_steps):
+    own_pos = state.agent_a if perspective == 'A' else state.agent_b
+    opponent_pos = state.agent_b if perspective == 'A' else state.agent_a
+    region = _reachable_region(
+        own_pos,
+        board,
+        state.boxes | {opponent_pos},
+    )
+    distances = []
+    priority = 'A' if (max_steps - state.step) % 2 else 'B'
+    for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
+        approach = (box[0] - dx, box[1] - dy)
+        push_to = (box[0] + dx, box[1] + dy)
+        if approach not in region:
+            continue
+        if push_to in board.walls or push_to in state.boxes:
+            continue
+        if (
+            priority != perspective
+            and board.dist(opponent_pos, push_to) <= 1
+        ):
+            continue
+        distances.append(board.dist(own_pos, approach))
+    return min(distances, default=9999)
+
+
 def _tactical_target(state, board, perspective, max_steps):
     """Choose one concrete box objective for directional action guidance."""
     own_score = state.score_a() if perspective == 'A' else state.score_b()
@@ -218,20 +381,36 @@ def _tactical_target(state, board, perspective, max_steps):
     if opponent_goals:
         steal_target = min(
             opponent_goals,
-            key=lambda box: _push_approach_distance(own_pos, box, board),
+            key=lambda box: _state_steal_cost(
+                state, box, board, perspective, max_steps
+            ),
         )
-        steal_cost = _push_approach_distance(own_pos, steal_target, board)
+        steal_cost = _state_steal_cost(
+            state, steal_target, board, perspective, max_steps
+        )
 
     free_goals = board.goals - occupied
     candidates = []
     for box in state.boxes - occupied:
         for goal in free_goals:
             cost = board.exact_steps(box, own_pos, goal)
+            remaining_boxes = (state.boxes - occupied) - {box}
+            remaining_goals = free_goals - {goal}
             if cost < max_steps - state.step:
-                candidates.append((cost, box, goal))
+                candidates.append((
+                    _assignment_capacity(
+                        remaining_boxes, remaining_goals, board
+                    ),
+                    cost,
+                    box,
+                    goal,
+                ))
 
     if candidates:
-        best_neutral_cost, box, goal = min(candidates)
+        _, best_neutral_cost, box, goal = min(
+            candidates,
+            key=lambda candidate: (-candidate[0], candidate[1], candidate[2], candidate[3]),
+        )
         if (
             steal_target is not None
             and steal_cost < 9999
@@ -250,11 +429,27 @@ def _tactical_target(state, board, perspective, max_steps):
         if perspective == 'A'
         else state.boxes_on_goals_b
     )
-    if own_goals:
+    if own_goals and not opponent_goals:
+        opponent_pos = state.agent_b if perspective == 'A' else state.agent_a
         target = min(
             own_goals,
             key=lambda box: board.dist(own_pos, box),
         )
+        guard_cells = []
+        for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
+            cell = (target[0] + dx, target[1] + dy)
+            if cell not in board.floor_cells or cell in state.boxes:
+                continue
+            guard_cells.append(cell)
+        if guard_cells:
+            guard_cell = min(
+                guard_cells,
+                key=lambda cell: (
+                    board.dist(own_pos, cell) - board.dist(opponent_pos, cell),
+                    board.dist(own_pos, cell),
+                ),
+            )
+            return ('guard', target, guard_cell)
         return ('guard', target, None)
     return None
 
@@ -269,8 +464,28 @@ def _tactical_cost(state, board, perspective, target):
     if kind == 'steal':
         return _push_approach_distance(pos, box, board)
     if kind == 'guard':
-        return board.dist(pos, box)
+        return board.dist(pos, goal) if goal is not None else board.dist(pos, box)
     return board.exact_steps(box, pos, goal)
+
+
+def _opponent_actions(
+    op_pos,
+    my_pos,
+    boxes,
+    board: Board,
+    action_cache: Optional[Dict[tuple, List[Action]]] = None,
+    include_wait: bool = True,
+) -> List[Action]:
+    if action_cache is not None:
+        cache_key = (op_pos, my_pos, boxes)
+        if cache_key in action_cache:
+            return action_cache[cache_key]
+    actions = get_valid_actions(
+        op_pos, my_pos, boxes, board, include_wait=include_wait
+    )
+    if action_cache is not None:
+        action_cache[cache_key] = actions
+    return actions
 
 
 def _robust_successor(
@@ -280,21 +495,42 @@ def _robust_successor(
     perspective: str,
     max_steps: int,
     heuristic_cache: Dict[tuple, float],
+    independence_cache: Optional[Dict[tuple, bool]] = None,
+    action_cache: Optional[Dict[tuple, List[Action]]] = None,
+    tactical_cache: Optional[Dict[tuple, object]] = None,
+    result_cache: Optional[Dict[tuple, tuple]] = None,
 ):
     """Return the worst legal opponent response to one own action."""
+    result_key = (curr._hash, own_action, perspective, max_steps)
+    if result_cache is not None and result_key in result_cache:
+        return result_cache[result_key]
     my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
     op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
-    opponent_actions = get_valid_actions(op_pos, my_pos, curr.boxes, board)
-    if not opponent_actions:
-        opponent_actions = get_valid_actions(
-            op_pos,
-            my_pos,
-            curr.boxes,
-            board,
-            include_wait=True,
+    independence_key = (curr._hash, perspective)
+    if independence_cache is not None and independence_key in independence_cache:
+        independent = independence_cache[independence_key]
+    else:
+        independent = _agents_are_independent(
+            curr, board, perspective, SEARCH_DEPTH
         )
+        if independence_cache is not None:
+            independence_cache[independence_key] = independent
+    if independent:
+        opponent_actions = [Action.WAIT]
+    else:
+        opponent_actions = _opponent_actions(
+            op_pos, my_pos, curr.boxes, board, action_cache, include_wait=True
+        )
+    if not opponent_actions:
+        opponent_actions = [Action.WAIT]
     candidates = []
-    target = _tactical_target(curr, board, perspective, max_steps)
+    target_key = (curr._hash, perspective, max_steps)
+    if tactical_cache is not None and target_key in tactical_cache:
+        target = tactical_cache[target_key]
+    else:
+        target = _tactical_target(curr, board, perspective, max_steps)
+        if tactical_cache is not None:
+            tactical_cache[target_key] = target
     target_cost_before = _tactical_cost(curr, board, perspective, target)
     pushes_own_finished_box = _pushes_own_finished_box(
         curr, own_action, perspective
@@ -356,7 +592,10 @@ def _robust_successor(
             opponent_action,
             next_state,
         ))
-    return min(candidates, key=lambda candidate: (candidate[0], candidate[1].value))
+    result = min(candidates, key=lambda candidate: (candidate[0], candidate[1].value))
+    if result_cache is not None:
+        result_cache[result_key] = result
+    return result
 
 
 def best_action(
@@ -368,16 +607,26 @@ def best_action(
     tt: Dict[int, Tuple[int, float, Action]],
     heuristic_cache: Dict[tuple, float],
     time_limit: float = TIME_LIMIT,
-    banned_actions: List[Action] = None
+    banned_actions: List[Action] = None,
+    action_cache: Optional[Dict[tuple, List[Action]]] = None,
+    tactical_cache: Optional[Dict[tuple, object]] = None,
+    result_cache: Optional[Dict[tuple, tuple]] = None,
 ) -> Action:
     deadline = time.time() + time_limit
-    
+
     visited = set()
     visited.add(state._hash)
-    
+
     my_pos = state.agent_a if perspective == 'A' else state.agent_b
     op_pos = state.agent_b if perspective == 'A' else state.agent_a
-    
+
+    if action_cache is None:
+        action_cache: Dict[tuple, List[Action]] = {}
+    if tactical_cache is None:
+        tactical_cache: Dict[tuple, object] = {}
+    if result_cache is None:
+        result_cache: Dict[tuple, tuple] = {}
+
     root_acts = get_valid_actions(my_pos, op_pos, state.boxes, board)
     root_acts = [
         action for action in root_acts
@@ -393,8 +642,13 @@ def best_action(
                 not _pushes_opponent_finished_box(
                     state, action, perspective
                 )
-                and not _creates_deadlock(
-                    state, action, board, perspective, max_steps
+                and (
+                    _is_endgame_finish(
+                        state, action, board, perspective, max_steps
+                    )
+                    or not _creates_deadlock(
+                        state, action, board, perspective, max_steps
+                    )
                 )
             )
         )
@@ -402,13 +656,7 @@ def best_action(
     if banned_actions:
         root_acts = [a for a in root_acts if a not in banned_actions]
     if not root_acts:
-        root_acts = get_valid_actions(
-            my_pos,
-            op_pos,
-            state.boxes,
-            board,
-            include_wait=True,
-        )
+        root_acts = _opponent_actions(my_pos, op_pos, state.boxes, board, action_cache, include_wait=True)
     root_action_best_val = {act: -float('inf') for act in root_acts}
     root_action_initial_val = {act: -float('inf') for act in root_acts}
     root_action_revisits = {act: False for act in root_acts}
@@ -416,49 +664,46 @@ def best_action(
     own_score = state.score_a() if perspective == 'A' else state.score_b()
     opponent_score = state.score_b() if perspective == 'A' else state.score_a()
 
-    # Seed one frontier per root action. Keeping roots separate prevents a
-    # temporarily unattractive but strategically necessary route from being
-    # starved by a better-looking WAIT branch.
-    frontiers = {act: [] for act in root_acts}
-    for act in root_acts:
-        val, _, ns = _robust_successor(
-            state, act, board, perspective, max_steps, heuristic_cache
-        )
-
-        new_my_pos = ns.agent_a if perspective == 'A' else ns.agent_b
-        root_action_revisits[act] = (
-            new_my_pos != my_pos and new_my_pos in recent_positions
-        )
-        target = _tactical_target(state, board, perspective, max_steps)
-        before_cost = _tactical_cost(state, board, perspective, target)
-        after_cost = _tactical_cost(ns, board, perspective, target)
-        if before_cost < 9999 and after_cost < 9999:
-            root_action_progress[act] = before_cost - after_cost
-        if (
-            opponent_score >= own_score
-            and _steal_preserves_goal_access(
-                state, act, board, perspective
-            )
-        ):
-            # A legal immediate capture is the clearest possible response to
-            # a tied or losing scoreboard. Prefer taking the point off the
-            # opponent now; the following search step plans the re-score.
-            root_action_progress[act] = max(
-                root_action_progress[act], IMMEDIATE_STEAL_PRIORITY
-            )
-        if _finishes_neutral_box(state, act, board, perspective):
-            root_action_progress[act] = max(
-                root_action_progress[act], IMMEDIATE_FINISH_PRIORITY
-            )
-        
-        if val > root_action_best_val[act]:
-            root_action_best_val[act] = val
-        root_action_initial_val[act] = val
-        frontiers[act].append((val, ns))
-        visited.add(ns._hash)
-
     best_choice = None
     best_choice_value = -float('inf')
+    independence_cache: Dict[tuple, bool] = {}
+
+    root_target = _tactical_target(state, board, perspective, max_steps)
+    root_before_cost = _tactical_cost(state, board, perspective, root_target)
+
+    independent = _agents_are_independent(
+        state, board, perspective, SEARCH_DEPTH
+    )
+    independence_cache[(state._hash, perspective)] = independent
+
+    if independent and root_target is not None:
+        best_act = None
+        best_val = -float('inf')
+        for act in root_acts:
+            val, _, ns = _robust_successor(
+                state,
+                act,
+                board,
+                perspective,
+                max_steps,
+                heuristic_cache,
+                independence_cache,
+                action_cache,
+                tactical_cache,
+                result_cache,
+            )
+            after_cost = _tactical_cost(ns, board, perspective, root_target)
+            tactical_bonus = 0.0
+            if root_before_cost < 9999 and after_cost < 9999:
+                tactical_bonus = TACTICAL_PROGRESS_WEIGHT * (
+                    root_before_cost - after_cost
+                )
+            total_val = val + tactical_bonus
+            if total_val > best_val:
+                best_val = total_val
+                best_act = act
+        if best_act is not None:
+            return best_act
 
     for depth_limit in range(1, MAX_SEARCH_DEPTH + 1):
         if time.time() >= deadline:
@@ -475,7 +720,16 @@ def best_action(
         frontiers = {act: [] for act in root_acts}
         for act in root_acts:
             val, _, ns = _robust_successor(
-                state, act, board, perspective, max_steps, heuristic_cache
+                state,
+                act,
+                board,
+                perspective,
+                max_steps,
+                heuristic_cache,
+                independence_cache,
+                action_cache,
+                tactical_cache,
+                result_cache,
             )
             root_action_initial_val[act] = val
             root_action_best_val[act] = max(root_action_best_val[act], val)
@@ -485,13 +739,16 @@ def best_action(
 
             new_my_pos = ns.agent_a if perspective == 'A' else ns.agent_b
             root_action_revisits[act] = (
-                new_my_pos != my_pos and new_my_pos in recent_positions
+                new_my_pos != my_pos
+                and _same_recent_position_and_board(
+                    ns,
+                    recent_positions,
+                    perspective,
+                )
             )
-            target = _tactical_target(state, board, perspective, max_steps)
-            before_cost = _tactical_cost(state, board, perspective, target)
-            after_cost = _tactical_cost(ns, board, perspective, target)
-            if before_cost < 9999 and after_cost < 9999:
-                root_action_progress[act] = before_cost - after_cost
+            after_cost = _tactical_cost(ns, board, perspective, root_target)
+            if root_before_cost < 9999 and after_cost < 9999:
+                root_action_progress[act] = root_before_cost - after_cost
             if (
                 opponent_score >= own_score
                 and _steal_preserves_goal_access(
@@ -520,8 +777,8 @@ def best_action(
 
                     curr_my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
                     curr_op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
-                    for next_action in get_valid_actions(
-                        curr_my_pos, curr_op_pos, curr.boxes, board
+                    for next_action in _opponent_actions(
+                        curr_my_pos, curr_op_pos, curr.boxes, board, action_cache, include_wait=False
                     ):
                         if _pushes_own_finished_box(curr, next_action, perspective):
                             continue
@@ -529,6 +786,9 @@ def best_action(
                             (
                                 not _pushes_opponent_finished_box(
                                     curr, next_action, perspective
+                                )
+                                and not _is_endgame_finish(
+                                    curr, next_action, board, perspective, max_steps
                                 )
                                 and _creates_deadlock(
                                     curr, next_action, board, perspective, max_steps
@@ -551,6 +811,10 @@ def best_action(
                             perspective,
                             max_steps,
                             heuristic_cache,
+                            independence_cache,
+                            action_cache,
+                            tactical_cache,
+                            result_cache,
                         )
                         if ns._hash in visited:
                             continue
@@ -609,7 +873,7 @@ def best_action(
     # filtered and protected against self-damaging moves.
     for act in root_acts:
         val, _, _ = _robust_successor(
-            state, act, board, perspective, max_steps, heuristic_cache
+            state, act, board, perspective, max_steps, heuristic_cache, action_cache=action_cache, tactical_cache=tactical_cache, result_cache=result_cache
         )
         if val > best_choice_value:
             best_choice = act
@@ -622,9 +886,12 @@ class AgentA:
     Agent A controller (Unified).
     """
     def __init__(self):
-        self._history: Deque[Tuple[int, int]] = deque(maxlen=4)
+        self._history: Deque = deque(maxlen=4)
         self.tt: Dict[int, Tuple[int, float, Action]] = {}
         self.heuristic_cache: Dict[int, float] = {}
+        self.action_cache: Dict[tuple, List[Action]] = {}
+        self.tactical_cache: Dict[tuple, object] = {}
+        self.result_cache: Dict[tuple, tuple] = {}
         self._last_action: Optional[Action] = None
         self._last_pos: Optional[Tuple[int, int]] = None
 
@@ -635,22 +902,31 @@ class AgentA:
         max_steps: int,
         banned_actions: List[Action] = None
     ) -> Action:
-        
+
         if len(self.heuristic_cache) > 500000:
             self.heuristic_cache.clear()
-            
+        if len(self.action_cache) > 500000:
+            self.action_cache.clear()
+        if len(self.tactical_cache) > 500000:
+            self.tactical_cache.clear()
+        if len(self.result_cache) > 500000:
+            self.result_cache.clear()
+
         auto_banned = list(banned_actions) if banned_actions else []
-            
+
         action = best_action(
             state, board, max_steps,
             perspective='A',
             recent_positions=self._history,
             tt=self.tt,
             heuristic_cache=self.heuristic_cache,
-            banned_actions=auto_banned
+            banned_actions=auto_banned,
+            action_cache=self.action_cache,
+            tactical_cache=self.tactical_cache,
+            result_cache=self.result_cache,
         )
         
-        self._history.append(state.agent_a)
+        self._history.append((state.agent_a, state.board_hash))
         self._last_pos = state.agent_a
         self._last_action = action
         

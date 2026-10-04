@@ -11,7 +11,7 @@ All conflict rules from the design document:
     +    Moving into the other agent's current cell         → blocked
          (agent cannot pass through / enter occupied cell)
 """
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, NamedTuple
 from src.competitive.state import Action, Board, CompetitiveState
 
 
@@ -20,6 +20,11 @@ from src.competitive.state import Action, Board, CompetitiveState
 def _step(pos: Tuple[int, int], action: Action) -> Tuple[int, int]:
     dx, dy = action.value
     return (pos[0] + dx, pos[1] + dy)
+
+
+class _Outcome(NamedTuple):
+    state: CompetitiveState
+    conflict: bool
 
 
 # ── Core transition ───────────────────────────────────────────────────────────
@@ -108,8 +113,7 @@ def resolve_joint_action_outcome(
             _resolve_yield=False,
             _allow_occupied_entry=True,
         )
-        resolved.conflict = True
-        return resolved
+        return _Outcome(state=resolved.state, conflict=True)
 
     # Rules 7.3 / 7.4 — both push the same box in any directions.
     # This takes precedence over same-destination handling because both
@@ -166,12 +170,17 @@ def resolve_joint_action_outcome(
             valid_b = False
             conflict_occurred = True
 
-    # An agent cannot enter the other agent's current cell, even when the
-    # other agent is moving away during this joint step.
-    if valid_a and not _allow_occupied_entry and not same_destination_conflict and action_a != Action.WAIT and dest_a == pos_b:
+    # Entry into the other agent's cell is allowed when that agent has a
+    # valid move away. Swaps were handled above; a waiting or invalid agent
+    # still occupies its cell and blocks entry.
+    if valid_a and not _allow_occupied_entry and not same_destination_conflict and action_a != Action.WAIT and dest_a == pos_b and (
+        not valid_b or action_b == Action.WAIT or dest_b == pos_b
+    ):
         valid_a = False
         conflict_occurred = True
-    if valid_b and not _allow_occupied_entry and not same_destination_conflict and action_b != Action.WAIT and dest_b == pos_a:
+    if valid_b and not _allow_occupied_entry and not same_destination_conflict and action_b != Action.WAIT and dest_b == pos_a and (
+        not valid_a or action_a == Action.WAIT or dest_a == pos_a
+    ):
         valid_b = False
         conflict_occurred = True
 
@@ -221,11 +230,7 @@ def resolve_joint_action_outcome(
         step=state.step + 1,
     )
     
-    class Outcome:
-        pass
-    out = Outcome()
-    out.state = ns
-    out.conflict = conflict_occurred
+    out = _Outcome(state=ns, conflict=conflict_occurred)
     return out
 
 def resolve_joint_action(
@@ -275,6 +280,7 @@ def _best_yield_action(
             board,
             max_steps,
             _resolve_yield=False,
+            _allow_occupied_entry=True,
         ).state
         next_pos = next_state.agent_a if yielding_perspective == 'A' else next_state.agent_b
         if next_pos == yielding_pos:

@@ -4,10 +4,13 @@ from collections import deque
 from src.competitive.agent_a import (
     _cache_key,
     _creates_deadlock,
+    _is_endgame_finish,
     _finishes_neutral_box,
     _robust_successor,
+    _same_recent_position_and_board,
     _steal_preserves_goal_access,
     _tactical_target,
+    _agents_are_independent,
     best_action,
 )
 from src.competitive.evaluation import (
@@ -114,7 +117,19 @@ class TestCompetitiveRules(unittest.TestCase):
             self.board,
             10,
         )
-        self.assertEqual(out.state.agent_a, (2, 3))
+        self.assertEqual(out.state.agent_a, (3, 3))
+        self.assertEqual(out.state.agent_b, (3, 2))
+        self.assertFalse(out.conflict)
+
+    def test_entry_is_blocked_when_occupant_cannot_move(self):
+        out = resolve_joint_action_outcome(
+            self.state((2, 2), (3, 2), frozenset({(3, 1)})),
+            Action.EAST,
+            Action.NORTH,
+            self.board,
+            10,
+        )
+        self.assertEqual(out.state.agent_a, (2, 2))
         self.assertEqual(out.state.agent_b, (3, 2))
         self.assertTrue(out.conflict)
 
@@ -174,6 +189,27 @@ class TestCompetitiveRules(unittest.TestCase):
             time_limit=0.01,
         )
         self.assertNotIn(action, (Action.NORTH, Action.SOUTH))
+
+    def test_revisit_filter_allows_same_cell_after_board_change(self):
+        state = self.state((2, 2), (4, 2))
+        changed = CompetitiveState(
+            state.agent_a,
+            state.agent_b,
+            frozenset({(3, 3)}),
+            frozenset(),
+            frozenset(),
+            1,
+        )
+        history = deque(
+            [(state.agent_a, state.board_hash)],
+            maxlen=4,
+        )
+        self.assertTrue(
+            _same_recent_position_and_board(state, history, "A")
+        )
+        self.assertFalse(
+            _same_recent_position_and_board(changed, history, "A")
+        )
 
     def test_reachable_opponent_goal_has_steal_value(self):
         board = Board(
@@ -347,6 +383,33 @@ class TestCompetitiveRules(unittest.TestCase):
         self.assertEqual(target[0], "finish")
         self.assertNotEqual(target[1], (12, 6))
 
+    def test_endgame_prefers_immediate_finish_over_assignment_deadlock(self):
+        _, board = parse_competitive_map("maps/competitive/dense_goals.txt")
+        state = CompetitiveState(
+            (5, 6),
+            (4, 6),
+            frozenset({(3, 2), (3, 6), (7, 6), (8, 2), (12, 6)}),
+            frozenset({(12, 6)}),
+            frozenset(),
+            31,
+        )
+        self.assertTrue(
+            _is_endgame_finish(state, Action.WEST, board, "B", 50)
+        )
+        self.assertEqual(
+            best_action(
+                state,
+                board,
+                50,
+                "B",
+                deque(maxlen=4),
+                {},
+                {},
+                time_limit=0.15,
+            ),
+            Action.WEST,
+        )
+
     def test_one_push_finish_is_explicitly_prioritized(self):
         board = self.board
         state = CompetitiveState(
@@ -373,6 +436,29 @@ class TestCompetitiveRules(unittest.TestCase):
             ),
             Action.SOUTH,
         )
+
+    def test_independent_regions_skip_competitive_response_model(self):
+        board = Board(
+            frozenset(
+                (x, y)
+                for x in range(9)
+                for y in range(5)
+                if x in (0, 8) or y in (0, 4) or x == 4
+            ),
+            frozenset({(2, 2), (6, 2)}),
+            9,
+            5,
+        )
+        state = CompetitiveState(
+            (2, 2),
+            (6, 2),
+            frozenset(),
+            frozenset(),
+            frozenset(),
+            0,
+        )
+        self.assertTrue(_agents_are_independent(state, board, "A"))
+        self.assertTrue(_agents_are_independent(state, board, "B"))
 
     def test_agent_does_not_push_its_own_finished_box(self):
         state = CompetitiveState(
