@@ -1,0 +1,351 @@
+ SCI-FI FACILITY BUILDER — PACK 1: FOUNDATION
+USER GUIDE
+
+Version 1.1
+
+
+This guide explains the main usage and design rules for Pack 1.
+
+
+==================================================
+FILE NAMING
+==================================================
+
+Asset names use short codes to identify their function, direction, and variants.
+
+Code	                Meaning
+H / V	                Horizontal / Vertical
+UL / UR / DL / DR	Corner position
+v1 / v2	                Variant
+l1 / l2	                Layer
+g1 / g2	                Group
+start / repeat / end	Modular section
+
+
+==================================================
+SIGNAGE SYSTEM
+==================================================
+
+
+ROOM LABEL
+
+Mounted beside doors on the Top Wall.
+
+Identifies the room the door leads into when viewed from the approach side, such as a hallway or connecting room. It is not intended to label the room from inside.
+
+Included presets:
+
+- MED BAY
+- LAB
+- STOR
+- UTIL
+- CTRL
+- EXIT
+- Blank Frame
+
+For custom text:
+
+Recommended font: Orbitron Black
+Recommended color: #8D9AA5
+Recommended text size: 20–24 px
+Alignment: Center
+Keep text within the label area.
+
+
+DIRECTION SIGN
+
+Used at junctions and Divider Walls. Points toward another room rather than identifying the current room.
+
+Arrow is included. Add custom destination text.
+
+Custom text for blank frame:
+
+Recommended font: Orbitron Black
+Recommended color: #8D9AA5
+Recommended text size: 7 px
+Alignment: Center
+Keep text within the designated text area.
+
+
+
+WALL ZONE CODE
+
+Large stencil marking placed on Top Walls.
+
+Used to identify facility zones, sectors, or floors.
+
+Examples:
+
+A-16
+F-03
+B-08
+
+Recommended font: Orbitron Black
+Recommended color: #85919B
+Recommended text size: 38 px
+
+
+ROOM CODE
+
+Used to identify individual rooms where a Room Label cannot be placed.
+
+Place outside the room near the doorway.
+
+Examples:
+
+LAB 02
+
+or
+
+LAB
+02
+
+Recommended font: Orbitron Black
+Recommended color: #85919B
+Recommended text size: 24-25 px
+
+
+FLOOR ARROWS
+
+Directional floor markings used to support navigation.
+
+Available in four directions.
+
+
+HAZARD STRIPE
+
+Use hazard stripes to mark areas that require attention, clearance, or restricted access.
+
+Common uses:
+
+- Maintenance / service zone — mark areas that must remain clear in front of machinery, electrical panels, and access points.
+- Machinery boundary — mark the working area around generators, reactors, large pipe systems, and other industrial equipment.
+- Restricted / containment boundary — mark the edge of containment or restricted areas.
+- Corridor — use only where the corridor changes into a special-function or hazardous area. Do not run hazard stripes along corridors purely as decoration.
+- Floor hatch / service area — mark areas that require caution or should remain clear.
+
+
+==================================================
+WALL DETAILS
+==================================================
+
+
+Small modular details designed to be placed directly on wall surfaces.
+
+Wall Vent — place on wall surfaces where ventilation detail is needed.
+Wall Panel — place on wall surfaces as a utility/access detail.
+Wall Band — place along the Top Wall as an optional architectural detail.
+
+
+==================================================
+FLOOR DETAILS
+==================================================
+
+
+Small details designed to be placed on floor surfaces.
+
+Floor Drain/Access Panel — place within the floor area.
+Floor Hatch — place within the floor area as an access point.
+
+
+==================================================
+PROP PLACEMENT
+==================================================
+
+
+WALL-MOUNTED PROPS
+
+- Shelf
+- Pipe Module
+- Electrical Box
+- Alarm Light
+- Security Camera
+- Warning Sign
+- Direction Sign
+- Room Label
+- Wall Vent
+- Access Panel
+
+Avoid placing too many wall-mounted props close together unless intentionally creating a dense maintenance or utility area.
+
+The Shelf can be placed away from the Top Wall, but should not be placed directly against the Front Wall, as the perspective overlap will cause the shelf to appear partially embedded in the wall.
+
+
+FREESTANDING PROPS
+
+- Laboratory Bench
+
+Freestanding props can be placed throughout the room as needed.
+
+Avoid perfect symmetry unless the environment intentionally calls for an ordered layout.
+
+
+SURFACE PROPS
+
+- Chemical Bottles
+- Tablet
+
+Place these on benches and other suitable surfaces to create functional or storytelling variations.
+
+Pre-built Full Bench and Full Shelf variants are included for quick placement.
+Use the Empty Bench, Empty Shelf with separate props when more customization is needed.
+
+
+STORAGE PROPS
+
+- Plastic Crate
+- Plastic Storage Box
+
+Designed primarily for shelves and storage areas.
+
+Use them to create different shelf configurations and vary storage density without changing the base furniture.
+
+Pre-built Plastic Crate arrangements are included for quick placement.
+
+
+==================================================
+MOOD GUIDE
+==================================================
+
+The same base architecture can support multiple moods by changing props, states, overlays, and lighting.
+
+
+CLEAN
+
+- No environmental overlays
+- Alarm Light Off
+- Closed or controlled door states
+- Clean architecture and surfaces
+
+
+EMERGENCY
+
+- Darker scene lighting
+- Alarm Light On
+- Open doors where appropriate
+- Optional red lighting or glow
+
+
+ABANDONED
+
+- Rust around pipes and utility areas
+- Grime along wall and floor edges
+- Slightly rotated or displaced signs
+- Electrical Box Open
+- Dirt and wear overlays
+
+
+HORROR
+
+- Dark scene lighting
+- Blood decals near doors or points of interest
+- Alarm Light On
+- Optional flickering lights
+- Heavier environmental overlays
+
+
+==================================================
+LIGHT GLOW OVERLAY
+==================================================
+
+Included glow overlays:
+
+door_indicator_glow_1
+door_indicator_glow_2
+door_indicator_glow_3
+
+alarm_light_on_l1
+alarm_light_on_l2
+
+horror_light_door_l1
+horror_light_door_l2
+
+
+Light Glow is optional.
+
+
+
+DOOR INDICATOR
+
+The indicator is provided as separate frames for custom animation.
+
+Activate the lights in sequence: 1 → 2 → 3 → Door Opens
+
+
+
+Use alarm_light and horror_light to reinforce lighting in Emergency and Horror scenes rather than as a required part of the architecture.
+
+Suggested starting point:
+
+
+FOR EMERGENCY MOOD:
+
+- alarm_light_on_l1
+
+Blend Mode:  Screen
+Opacity:     40%
+
+- alarm_light_on_l2
+
+Place on top of alarm_light_on_l1
+
+
+For stronger Emergency atmosphere, a full-screen color overlay can also be used.
+
+Recommended:
+
+Color:       #D35A5A
+Blend Mode:  Multiply
+Opacity:     30%
+
+
+
+FOR HORROR MOOD:
+
+- horror_light_door_l1
+
+Blend Mode:  Overlay
+Opacity:     100%
+
+- horror_light_door_l2
+
+Place on top of horror_light_door_l1
+
+Blend Mode:  Overlay
+Opacity:     60%
+
+
+Recommended a full-screen color overlay:
+
+Color:       #22282C
+Blend Mode:  Multiply
+Opacity:     70%
+
+A full-screen color overlay indicating a state of emergency may be added underneath if the alarm light is activated.
+
+
+Adjust these settings to suit your engine, scene lighting, and desired mood.
+
+
+==================================================
+ENVIRONMENT DESIGN TIPS
+==================================================
+
+For clear and reusable environments:
+
+- Keep one primary wall family per room.
+- Use one primary floor material.
+- Add a secondary floor only when it communicates a specific function.
+- Let furniture and props establish room identity.
+- Let signage and markings communicate function and navigation.
+- Let overlays and lighting establish atmosphere.
+- Keep the base architecture clean and reusable.
+
+
+==================================================
+SCI-FI FACILITY BUILDER SERIES
+==================================================
+
+Pack 1: Foundation provides the shared architectural base for the Sci-Fi Facility Builder series.
+
+Future packs introduce additional architecture, props, equipment, systems, states, and environmental modifiers while remaining compatible with the Foundation system.

@@ -1,0 +1,18 @@
+Sci-Fi Facility Builder — Pack 1: Foundation
+
+
+
+Version 1.1
+
+_ Completely reworked Grated Floor
+_ Completely reworked Painted Wall & Sterile Wall
+_ Added Camera assets
+_ Added Hazard Stripes
+_ Revised asset naming and folder structure
+_ Updated documentation and user workflow
+_ Various asset refinements and improvements
+
+|
+v
+
+Version 1.0
