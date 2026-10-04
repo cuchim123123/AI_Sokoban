@@ -17,12 +17,30 @@ W_MISSION    = 2.0      # Reward for finish-next-box then return-to-defense plan
 W_OFF_GOAL   = 15.0     # Penalty for pushing boxes far from goals
 W_DEAD       = 5000.0   # Large penalty for deadlocking a box
 W_MOBILITY   = 0.0      # Disabled — fights exact_step gradient
+W_PROJECTED  = 700.0    # Value of score that remains realistically reachable
 
 
 _UNREACHABLE = 9999     # Distance constant for unreachable states
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+def _has_legal_push(
+    box: Tuple[int, int],
+    boxes: FrozenSet[Tuple[int, int]],
+    board: Board,
+) -> bool:
+    """Return whether the box has any locally valid push direction."""
+    for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
+        approach = (box[0] - dx, box[1] - dy)
+        destination = (box[0] + dx, box[1] + dy)
+        if approach in board.walls or approach in boxes:
+            continue
+        if destination in board.walls or destination in boxes:
+            continue
+        return True
+    return False
 
 
 def _deadlock_count(
@@ -43,6 +61,12 @@ def _deadlock_count(
 
     for box in boxes:
         if box in occupied_goals:
+            continue
+
+        # A box with no locally valid push is frozen regardless of the
+        # optimistic static push-distance table.
+        if not _has_legal_push(box, boxes, board):
+            count += 1
             continue
 
         # 1. Static deadlock (precomputed unreachable)
@@ -359,6 +383,56 @@ def _finish_return_score(
     return float(max(0, 200 - best_mission))
 
 
+def _projected_future_score(
+    pos: Tuple[int, int],
+    boxes: FrozenSet[Tuple[int, int]],
+    occupied_goals: FrozenSet[Tuple[int, int]],
+    board: Board,
+    remaining_steps: int,
+) -> int:
+    """Count uncredited boxes with a feasible one-agent delivery plan."""
+    free_goals = board.goals - occupied_goals
+    unplaced = boxes - occupied_goals
+    if not free_goals or not unplaced:
+        return 0
+
+    costs = [
+        [board.exact_steps(box, pos, goal) for goal in free_goals]
+        for box in unplaced
+    ]
+    row_ind, col_ind = linear_sum_assignment(costs)
+    return sum(
+        costs[row][col] <= remaining_steps
+        for row, col in zip(row_ind, col_ind)
+    )
+
+
+def projected_score(
+    state: CompetitiveState,
+    board: Board,
+    perspective: str,
+    max_steps: int,
+) -> float:
+    """Estimate the final score differential reachable from this state."""
+    remaining = max_steps - state.step
+    occupied = state.boxes_on_goals_a | state.boxes_on_goals_b
+    future_a = _projected_future_score(
+        state.agent_a, state.boxes, occupied, board, remaining
+    )
+    future_b = _projected_future_score(
+        state.agent_b, state.boxes, occupied, board, remaining
+    )
+    total_future = min(len(state.boxes - occupied), len(board.goals - occupied))
+    future_a = min(future_a, total_future)
+    future_b = min(future_b, total_future)
+
+    score_a = state.score_a() + future_a
+    score_b = state.score_b() + future_b
+    if perspective == 'A':
+        return float(score_a - score_b)
+    return float(score_b - score_a)
+
+
 def competitive_heuristic(
     state: CompetitiveState,
     board: Board,
@@ -444,6 +518,7 @@ def competitive_heuristic(
 
     return (
         W_SCORE * (own_score - opp_score)
+        + W_PROJECTED * projected_score(state, board, perspective, max_steps)
         + W_CHAIN * (own_chain - opp_chain)
         + steal_weight * own_steal - W_STEAL * opp_steal
         + W_GUARD * (own_guard - opp_guard)

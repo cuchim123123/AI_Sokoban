@@ -7,7 +7,11 @@ from typing import Optional, Tuple, Deque, Dict, List
 
 from src.competitive.state import Action, Board, CompetitiveState
 from src.competitive.transition import get_valid_actions, resolve_joint_action_outcome
-from src.competitive.evaluation import competitive_heuristic, W_SCORE
+from src.competitive.evaluation import (
+    _deadlock_count,
+    competitive_heuristic,
+    W_SCORE,
+)
 
 # ── Search Constants ──────────────────────────────────────────────────────────
 TIME_LIMIT = 0.90
@@ -16,6 +20,10 @@ MAX_SEARCH_DEPTH = 8
 BEAM_WIDTH = 24
 BLOCKED_ACTION_PENALTY = 250.0
 TACTICAL_PROGRESS_WEIGHT = 20.0
+IMMEDIATE_FINISH_PRIORITY = 9000
+IMMEDIATE_STEAL_PRIORITY = 10000
+GUARD_DRIFT_PENALTY = 100.0
+STEAL_COST_MARGIN = 0
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _cache_key(
@@ -84,6 +92,103 @@ def _pushes_opponent_finished_box(state, action, perspective):
     return destination in opponent_goals
 
 
+def _steal_preserves_goal_access(
+    state: CompetitiveState,
+    action: Action,
+    board: Board,
+    perspective: str,
+) -> bool:
+    if not _pushes_opponent_finished_box(state, action, perspective):
+        return False
+    position = state.agent_a if perspective == 'A' else state.agent_b
+    box = (
+        position[0] + action.value[0],
+        position[1] + action.value[1],
+    )
+    pushed_to = (
+        box[0] + action.value[0],
+        box[1] + action.value[1],
+    )
+    return any(
+        board.push_dist(pushed_to, goal) < 9999
+        for goal in board.goals
+    )
+
+
+def _finishes_neutral_box(
+    state: CompetitiveState,
+    action: Action,
+    board: Board,
+    perspective: str,
+) -> bool:
+    if action == Action.WAIT:
+        return False
+    position = state.agent_a if perspective == 'A' else state.agent_b
+    occupied = state.boxes_on_goals_a | state.boxes_on_goals_b
+    box = (
+        position[0] + action.value[0],
+        position[1] + action.value[1],
+    )
+    destination = (
+        box[0] + action.value[0],
+        box[1] + action.value[1],
+    )
+    return (
+        box in state.boxes
+        and box not in occupied
+        and destination in board.goals
+        and destination not in occupied
+    )
+
+
+def _creates_deadlock(
+    state: CompetitiveState,
+    action: Action,
+    board: Board,
+    perspective: str,
+    max_steps: int,
+) -> bool:
+    """Reject a push that increases the currently detectable deadlock count."""
+    if action == Action.WAIT:
+        return False
+    position = state.agent_a if perspective == 'A' else state.agent_b
+    destination = (
+        position[0] + action.value[0],
+        position[1] + action.value[1],
+    )
+    if destination not in state.boxes:
+        return False
+
+    action_a, action_b = _joint_action(
+        state, perspective, action, Action.WAIT
+    )
+    next_state = resolve_joint_action_outcome(
+        state, action_a, action_b, board, max_steps
+    ).state
+    pushed_to = (
+        destination[0] + action.value[0],
+        destination[1] + action.value[1],
+    )
+    if pushed_to not in board.goals:
+        blocked_x = (
+            (pushed_to[0] - 1, pushed_to[1]) in board.walls
+            or (pushed_to[0] + 1, pushed_to[1]) in board.walls
+        )
+        blocked_y = (
+            (pushed_to[0], pushed_to[1] - 1) in board.walls
+            or (pushed_to[0], pushed_to[1] + 1) in board.walls
+        )
+        if blocked_x and blocked_y:
+            return True
+    occupied = state.boxes_on_goals_a | state.boxes_on_goals_b
+    next_occupied = (
+        next_state.boxes_on_goals_a | next_state.boxes_on_goals_b
+    )
+    return _deadlock_count(
+        next_state.boxes, board, next_occupied
+    ) > _deadlock_count(state.boxes, board, occupied)
+
+
 def _push_approach_distance(pos, box, board):
     distances = []
     for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
@@ -102,18 +207,20 @@ def _tactical_target(state, board, perspective, max_steps):
     own_pos = state.agent_a if perspective == 'A' else state.agent_b
     occupied = state.boxes_on_goals_a | state.boxes_on_goals_b
 
-    # When behind or when no neutral box remains, pursue an opponent goal.
+    # A nearby opponent goal is a hot-zone opportunity even when scores are tied.
     opponent_goals = (
         state.boxes_on_goals_b
         if perspective == 'A'
         else state.boxes_on_goals_a
     )
-    if opponent_goals and (opponent_score > own_score or not (state.boxes - occupied)):
-        target = min(
+    steal_target = None
+    steal_cost = 9999
+    if opponent_goals:
+        steal_target = min(
             opponent_goals,
             key=lambda box: _push_approach_distance(own_pos, box, board),
         )
-        return ('steal', target, None)
+        steal_cost = _push_approach_distance(own_pos, steal_target, board)
 
     free_goals = board.goals - occupied
     candidates = []
@@ -124,15 +231,31 @@ def _tactical_target(state, board, perspective, max_steps):
                 candidates.append((cost, box, goal))
 
     if candidates:
-        _, box, goal = min(candidates)
+        best_neutral_cost, box, goal = min(candidates)
+        if (
+            steal_target is not None
+            and steal_cost < 9999
+            and (
+                steal_cost <= best_neutral_cost + STEAL_COST_MARGIN
+                and opponent_score >= own_score
+            )
+        ):
+            return ('steal', steal_target, None)
         return ('finish', box, goal)
 
-    if opponent_goals:
+    if steal_target is not None:
+        return ('steal', steal_target, None)
+    own_goals = (
+        state.boxes_on_goals_a
+        if perspective == 'A'
+        else state.boxes_on_goals_b
+    )
+    if own_goals:
         target = min(
-            opponent_goals,
-            key=lambda box: _push_approach_distance(own_pos, box, board),
+            own_goals,
+            key=lambda box: board.dist(own_pos, box),
         )
-        return ('steal', target, None)
+        return ('guard', target, None)
     return None
 
 
@@ -145,6 +268,8 @@ def _tactical_cost(state, board, perspective, target):
         return 9999
     if kind == 'steal':
         return _push_approach_distance(pos, box, board)
+    if kind == 'guard':
+        return board.dist(pos, box)
     return board.exact_steps(box, pos, goal)
 
 
@@ -212,6 +337,11 @@ def _robust_successor(
             # Removing an opponent point is strategically valuable even
             # though the transition awards the box only after re-scoring it.
             effective_value += W_SCORE * stolen_count
+        if target is not None and target[0] == 'guard':
+            if target_cost_after > target_cost_before:
+                effective_value -= GUARD_DRIFT_PENALTY * (
+                    target_cost_after - target_cost_before
+                )
         if pushes_own_finished_box:
             # The opponent may steal a credited box, but an agent should not
             # voluntarily destroy its own score while pursuing another route.
@@ -252,6 +382,22 @@ def best_action(
     root_acts = [
         action for action in root_acts
         if not _pushes_own_finished_box(state, action, perspective)
+        and (
+            (
+                _pushes_opponent_finished_box(state, action, perspective)
+                and _steal_preserves_goal_access(
+                    state, action, board, perspective
+                )
+            )
+            or (
+                not _pushes_opponent_finished_box(
+                    state, action, perspective
+                )
+                and not _creates_deadlock(
+                    state, action, board, perspective, max_steps
+                )
+            )
+        )
     ]
     if banned_actions:
         root_acts = [a for a in root_acts if a not in banned_actions]
@@ -290,13 +436,19 @@ def best_action(
             root_action_progress[act] = before_cost - after_cost
         if (
             opponent_score >= own_score
-            and _pushes_opponent_finished_box(state, act, perspective)
+            and _steal_preserves_goal_access(
+                state, act, board, perspective
+            )
         ):
             # A legal immediate capture is the clearest possible response to
             # a tied or losing scoreboard. Prefer taking the point off the
             # opponent now; the following search step plans the re-score.
             root_action_progress[act] = max(
-                root_action_progress[act], 10000
+                root_action_progress[act], IMMEDIATE_STEAL_PRIORITY
+            )
+        if _finishes_neutral_box(state, act, board, perspective):
+            root_action_progress[act] = max(
+                root_action_progress[act], IMMEDIATE_FINISH_PRIORITY
             )
         
         if val > root_action_best_val[act]:
@@ -311,6 +463,8 @@ def best_action(
     for depth_limit in range(1, MAX_SEARCH_DEPTH + 1):
         if time.time() >= deadline:
             break
+
+        depth_completed = True
 
         visited = {state._hash}
         root_action_best_val = {act: -float('inf') for act in root_acts}
@@ -338,9 +492,23 @@ def best_action(
             after_cost = _tactical_cost(ns, board, perspective, target)
             if before_cost < 9999 and after_cost < 9999:
                 root_action_progress[act] = before_cost - after_cost
+            if (
+                opponent_score >= own_score
+                and _steal_preserves_goal_access(
+                    state, act, board, perspective
+                )
+            ):
+                root_action_progress[act] = max(
+                    root_action_progress[act], IMMEDIATE_STEAL_PRIORITY
+                )
+            if _finishes_neutral_box(state, act, board, perspective):
+                root_action_progress[act] = max(
+                    root_action_progress[act], IMMEDIATE_FINISH_PRIORITY
+                )
 
         for _ in range(1, depth_limit):
             if time.time() >= deadline:
+                depth_completed = False
                 break
 
             next_frontiers = {act: [] for act in root_acts}
@@ -356,6 +524,25 @@ def best_action(
                         curr_my_pos, curr_op_pos, curr.boxes, board
                     ):
                         if _pushes_own_finished_box(curr, next_action, perspective):
+                            continue
+                        if (
+                            (
+                                not _pushes_opponent_finished_box(
+                                    curr, next_action, perspective
+                                )
+                                and _creates_deadlock(
+                                    curr, next_action, board, perspective, max_steps
+                                )
+                            )
+                            or (
+                                _pushes_opponent_finished_box(
+                                    curr, next_action, perspective
+                                )
+                                and not _steal_preserves_goal_access(
+                                    curr, next_action, board, perspective
+                                )
+                            )
+                        ):
                             continue
                         n_val, _, ns = _robust_successor(
                             curr,
@@ -380,6 +567,8 @@ def best_action(
                 break
 
         if time.time() >= deadline:
+            depth_completed = False
+        if not depth_completed:
             break
 
         best_overall_progress = max(root_action_progress.values())

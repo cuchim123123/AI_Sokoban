@@ -1,11 +1,21 @@
 import unittest
 from collections import deque
 
-from src.competitive.agent_a import _cache_key, _robust_successor, best_action
+from src.competitive.agent_a import (
+    _cache_key,
+    _creates_deadlock,
+    _finishes_neutral_box,
+    _robust_successor,
+    _steal_preserves_goal_access,
+    _tactical_target,
+    best_action,
+)
 from src.competitive.evaluation import (
+    _deadlock_count,
     _finish_return_score,
     _joint_interact_scores,
     competitive_heuristic,
+    projected_score,
 )
 from src.competitive.parser import parse_competitive_map
 from src.competitive.state import Action, Board, CompetitiveState
@@ -212,6 +222,157 @@ class TestCompetitiveRules(unittest.TestCase):
         )
         self.assertGreater(losing_attack, 0.0)
         self.assertLess(losing_attack, 1000.0)
+
+    def test_projected_score_includes_current_and_reachable_points(self):
+        board = Board(
+            frozenset(
+                (x, y)
+                for x in range(7)
+                for y in range(7)
+                if x in (0, 6) or y in (0, 6)
+            ),
+            frozenset({(3, 3), (3, 4)}),
+            7,
+            7,
+        )
+        state = CompetitiveState(
+            (3, 2),
+            (5, 5),
+            frozenset({(3, 3), (3, 4)}),
+            frozenset({(3, 3)}),
+            frozenset(),
+            0,
+        )
+        self.assertGreater(projected_score(state, board, "A", 20), 0.0)
+        self.assertGreater(
+            competitive_heuristic(state, board, "A", 20),
+            competitive_heuristic(state, board, "B", 20),
+        )
+
+    def test_search_rejects_new_corner_deadlock_push(self):
+        board = Board(
+            frozenset(
+                (x, y)
+                for x in range(7)
+                for y in range(7)
+                if x in (0, 6) or y in (0, 6)
+            ),
+            frozenset({(3, 4)}),
+            7,
+            7,
+        )
+        state = CompetitiveState(
+            (1, 3),
+            (5, 5),
+            frozenset({(1, 2)}),
+            frozenset(),
+            frozenset(),
+            0,
+        )
+        self.assertTrue(
+            _creates_deadlock(state, Action.NORTH, board, "A", 20)
+        )
+        self.assertEqual(
+            _deadlock_count(state.boxes, board),
+            1,
+        )
+
+    def test_tied_agent_targets_hot_opponent_goal(self):
+        board = Board(
+            frozenset(
+                (x, y)
+                for x in range(7)
+                for y in range(7)
+                if x in (0, 6) or y in (0, 6)
+            ),
+            frozenset({(3, 3), (5, 5)}),
+            7,
+            7,
+        )
+        state = CompetitiveState(
+            (3, 2),
+            (5, 4),
+            frozenset({(3, 3), (5, 5)}),
+            frozenset(),
+            frozenset({(3, 3)}),
+            0,
+        )
+        self.assertEqual(
+            _tactical_target(state, board, "A", 20)[0],
+            "steal",
+        )
+
+    def test_test_race_rejects_suicidal_eastward_steal(self):
+        _, board = parse_competitive_map("maps/competitive/test_race.txt")
+        state = CompetitiveState(
+            (3, 7),
+            (3, 3),
+            frozenset({(4, 7)}),
+            frozenset(),
+            frozenset({(4, 7)}),
+            11,
+        )
+        self.assertFalse(
+            _steal_preserves_goal_access(state, Action.EAST, board, "A")
+        )
+        self.assertNotEqual(
+            best_action(
+                state,
+                board,
+                50,
+                "A",
+                deque(maxlen=4),
+                {},
+                {},
+                time_limit=0.15,
+            ),
+            Action.EAST,
+        )
+        self.assertEqual(
+            _tactical_target(state, board, "B", 50)[0],
+            "guard",
+        )
+
+    def test_behind_agent_finishes_nearby_box_before_distant_steal(self):
+        _, board = parse_competitive_map("maps/competitive/dense_goals.txt")
+        state = CompetitiveState(
+            (12, 5),
+            (3, 4),
+            frozenset({(2, 5), (5, 2), (7, 6), (8, 2), (12, 6)}),
+            frozenset({(12, 6)}),
+            frozenset(),
+            18,
+        )
+        target = _tactical_target(state, board, "B", 60)
+        self.assertEqual(target[0], "finish")
+        self.assertNotEqual(target[1], (12, 6))
+
+    def test_one_push_finish_is_explicitly_prioritized(self):
+        board = self.board
+        state = CompetitiveState(
+            (3, 2),
+            (5, 5),
+            frozenset({(3, 3)}),
+            frozenset(),
+            frozenset(),
+            0,
+        )
+        self.assertTrue(
+            _finishes_neutral_box(state, Action.SOUTH, board, "A")
+        )
+        self.assertEqual(
+            best_action(
+                state,
+                board,
+                20,
+                "A",
+                deque(maxlen=4),
+                {},
+                {},
+                time_limit=0.15,
+            ),
+            Action.SOUTH,
+        )
 
     def test_agent_does_not_push_its_own_finished_box(self):
         state = CompetitiveState(
