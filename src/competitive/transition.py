@@ -74,52 +74,45 @@ def resolve_joint_action_outcome(
     # ── 4. Inter-agent conflict rules ─────────────────────────────────────────
 
     conflict_occurred = False
-    
-    # Priority logic
-    remaining_steps = max_steps - state.step
-    a_has_priority = (remaining_steps % 2 != 0)
 
-    # Function to apply conflict resolution
-    def _resolve_conflict():
+    def _fail_both() -> None:
         nonlocal valid_a, valid_b, conflict_occurred
+        valid_a = False
+        valid_b = False
         conflict_occurred = True
-        if a_has_priority:
-            valid_b = False
-        else:
-            valid_a = False
 
-    # Rule 7.1 — both target the same destination cell
+    # Rule 7.1 — both target the same destination cell.
     if valid_a and valid_b and dest_a == dest_b:
         if action_a != Action.WAIT or action_b != Action.WAIT:
-            _resolve_conflict()
+            _fail_both()
 
-    # Rule 7.2 — swap
-    if valid_a and valid_b:
-        if dest_a == pos_b and dest_b == pos_a:
-            _resolve_conflict()
+    # Rule 7.2 — agents try to swap positions.
+    if valid_a and valid_b and dest_a == pos_b and dest_b == pos_a:
+        _fail_both()
 
-    # Rules 7.3 / 7.4 — both push the same box (any direction)
+    # Rules 7.3 / 7.4 — both push the same box in any directions.
     if valid_a and valid_b and push_a_box is not None and push_b_box is not None:
         if push_a_box == push_b_box:
-            _resolve_conflict()
+            _fail_both()
 
-    # Cross-check: A pushes box to where B is simultaneously moving or waiting
+    # Rule 7.5 — a push into the other agent fails, while the other move may
+    # still commit if it is otherwise valid.
     if valid_a and valid_b:
         if push_a_dest is not None and push_a_dest == dest_b:
-            _resolve_conflict()
-        elif push_b_dest is not None and push_b_dest == dest_a:
-            _resolve_conflict()
-
-    # Re-validate: after one side fails, the other might now be free
-    # (e.g. B fails → A can move to what was B's destination)
-    if not valid_a and valid_b:
-        # Re-check B's push target. If A was occupying it, but A failed to move, A is STILL occupying it!
-        # Wait, if A failed to move, A stays at pos_a. If B's destination or push destination is pos_a, B should fail.
-        if dest_b == pos_a or push_b_dest == pos_a:
-            valid_b = False
-    elif valid_a and not valid_b:
-        if dest_a == pos_b or push_a_dest == pos_b:
             valid_a = False
+            conflict_occurred = True
+        if push_b_dest is not None and push_b_dest == dest_a:
+            valid_b = False
+            conflict_occurred = True
+
+    # An agent cannot enter the other agent's current cell, even when the
+    # other agent is moving away during this joint step.
+    if valid_a and action_a != Action.WAIT and dest_a == pos_b:
+        valid_a = False
+        conflict_occurred = True
+    if valid_b and action_b != Action.WAIT and dest_b == pos_a:
+        valid_b = False
+        conflict_occurred = True
 
     # ── 5. Commit valid moves ─────────────────────────────────────────────────
     new_boxes: set = set(boxes)
