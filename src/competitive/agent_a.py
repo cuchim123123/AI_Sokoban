@@ -112,6 +112,7 @@ def best_action(
     if not root_acts:
         root_acts = [Action.NORTH]
     root_action_best_val = {act: -float('inf') for act in root_acts}
+    root_action_revisits = {act: False for act in root_acts}
 
     # Initialize PQ with the worst response for each own action.
     for act in root_acts:
@@ -120,6 +121,9 @@ def best_action(
         )
 
         new_my_pos = ns.agent_a if perspective == 'A' else ns.agent_b
+        root_action_revisits[act] = (
+            new_my_pos != my_pos and new_my_pos in recent_positions
+        )
         
         if val > root_action_best_val[act]:
             root_action_best_val[act] = val
@@ -155,7 +159,11 @@ def best_action(
             heapq.heappush(pq, (-n_val, tiebreaker, ns, first_act))
             tiebreaker += 1
 
-    return max(root_action_best_val, key=root_action_best_val.get)
+    non_revisiting_actions = [
+        act for act in root_acts if not root_action_revisits[act]
+    ]
+    eligible_actions = non_revisiting_actions or root_acts
+    return max(eligible_actions, key=root_action_best_val.get)
 
 
 class AgentA:

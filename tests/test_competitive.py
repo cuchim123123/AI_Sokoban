@@ -119,6 +119,27 @@ class TestCompetitiveRules(unittest.TestCase):
             Action.WEST,
         )
 
+    def test_recent_position_revisit_is_not_selected_when_wait_is_safe(self):
+        state = CompetitiveState(
+            (4, 2),
+            (14, 2),
+            frozenset({(5, 3), (13, 3), (4, 7)}),
+            frozenset(),
+            frozenset(),
+            4,
+        )
+        action = best_action(
+            state,
+            self.board,
+            40,
+            "A",
+            deque([(4, 1), (4, 3)], maxlen=4),
+            {},
+            {},
+            time_limit=0.01,
+        )
+        self.assertNotIn(action, (Action.NORTH, Action.SOUTH))
+
 
 if __name__ == "__main__":
     unittest.main()
