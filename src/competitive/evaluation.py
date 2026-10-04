@@ -24,7 +24,11 @@ _UNREACHABLE = 9999     # Distance constant for unreachable states
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _deadlock_count(boxes: FrozenSet[Tuple[int, int]], board: Board) -> int:
+def _deadlock_count(
+    boxes: FrozenSet[Tuple[int, int]],
+    board: Board,
+    occupied_goals: FrozenSet[Tuple[int, int]] = frozenset(),
+) -> int:
     """
     Count the number of boxes that are permanently deadlocked.
 
@@ -34,10 +38,17 @@ def _deadlock_count(boxes: FrozenSet[Tuple[int, int]], board: Board) -> int:
     """
     count = 0
 
+    available_goals = board.goals - occupied_goals
+
     for box in boxes:
+        if box in occupied_goals:
+            continue
 
         # 1. Static deadlock (precomputed unreachable)
-        if all(board.push_dist(box, g) >= _UNREACHABLE for g in board.goals):
+        if all(
+            board.push_dist(box, g) >= _UNREACHABLE
+            for g in available_goals
+        ):
             count += 1
             continue
 
@@ -257,12 +268,16 @@ def _off_goal_penalty(
 
     total = 0.0
 
+    available_goals = board.goals - occupied_goals
+    if not available_goals:
+        return float(_UNREACHABLE * len(unplaced))
+
     for box in unplaced:
         # Use push_dist if possible, fallback to walking dist
-        min_d = min(board.push_dist(box, g) for g in board.goals)
+        min_d = min(board.push_dist(box, g) for g in available_goals)
 
         if min_d >= _UNREACHABLE:
-            min_d = min(board.dist(box, g) for g in board.goals)
+            min_d = min(board.dist(box, g) for g in available_goals)
 
         total += min_d
 
@@ -342,7 +357,7 @@ def competitive_heuristic(
     mob_b = _mobility(state.agent_b, state.boxes, board)
 
     # Shared board penalties (applied symmetrically — reduce total resource pool damage)
-    deadlocks = _deadlock_count(state.boxes, board)
+    deadlocks = _deadlock_count(state.boxes, board, occupied)
     off_goal = _off_goal_penalty(state.boxes, board, occupied)
 
     if perspective == 'A':

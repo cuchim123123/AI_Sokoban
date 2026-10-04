@@ -43,6 +43,27 @@ def _joint_action(state: CompetitiveState, perspective: str, own_action: Action,
     return opp_action, own_action
 
 
+def _pushes_own_finished_box(
+    state: CompetitiveState,
+    action: Action,
+    perspective: str,
+) -> bool:
+    if action == Action.WAIT:
+        return False
+
+    position = state.agent_a if perspective == 'A' else state.agent_b
+    own_goals = (
+        state.boxes_on_goals_a
+        if perspective == 'A'
+        else state.boxes_on_goals_b
+    )
+    destination = (
+        position[0] + action.value[0],
+        position[1] + action.value[1],
+    )
+    return destination in own_goals
+
+
 def _robust_successor(
     curr: CompetitiveState,
     own_action: Action,
@@ -56,6 +77,9 @@ def _robust_successor(
     op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
     opponent_actions = get_valid_actions(op_pos, my_pos, curr.boxes, board)
     candidates = []
+    pushes_own_finished_box = _pushes_own_finished_box(
+        curr, own_action, perspective
+    )
     for opponent_action in opponent_actions:
         action_a, action_b = _joint_action(
             curr, perspective, own_action, opponent_action
@@ -71,6 +95,10 @@ def _robust_successor(
         effective_value = _value(
             next_state, board, perspective, max_steps, heuristic_cache
         )
+        if pushes_own_finished_box:
+            # The opponent may steal a credited box, but an agent should not
+            # voluntarily destroy its own score while pursuing another route.
+            effective_value = float('-inf')
         if own_action != Action.WAIT and own_position_after == own_position_before:
             # A rejected move or push is not a useful response to an adversarial
             # opponent. Treat any response that blocks our action as unsafe.

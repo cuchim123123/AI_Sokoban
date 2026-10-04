@@ -171,6 +171,25 @@ class TestCompetitiveRules(unittest.TestCase):
         self.assertGreater(steal, 1000.0)
         self.assertGreater(competitive_heuristic(state, board, "A", 20), -1000.0)
 
+    def test_agent_does_not_push_its_own_finished_box(self):
+        state = CompetitiveState(
+            (3, 3),
+            (5, 5),
+            frozenset({(3, 4)}),
+            frozenset({(3, 4)}),
+            frozenset(),
+            0,
+        )
+        value, _, _ = _robust_successor(
+            state,
+            Action.SOUTH,
+            self.board,
+            "A",
+            20,
+            {},
+        )
+        self.assertEqual(value, float("-inf"))
+
 
 if __name__ == "__main__":
     unittest.main()
