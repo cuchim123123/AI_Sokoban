@@ -6,13 +6,13 @@ from src.competitive.state import CompetitiveState, Board
 # Tweak these to change the AI's behavior.
 
 W_SCORE      = 1000.0   # Reward for each point (box on goal)
-W_CHAIN      = 200.0    # Reward for being in position to push an unplaced box to a goal
-W_STEAL      = 80.0     # Reward for stealing opponent's scored box (reduced — feasibility-gated)
-W_GUARD      = 100.0    # Reward for guarding own scored boxes (raised — losing a point = -1000)
-W_OFF_GOAL   = 15.0     # Penalty for pushing boxes far from goals (discourages scatter)
+W_CHAIN      = 2.0      # Linear multiplier per step closer. Max = 2.0 * 200 = 400
+W_STEAL      = 1.0      # Linear multiplier per step closer to steal. Max = 200
+W_GUARD      = 1.5      # Linear multiplier per step closer to guard. Max = 300
+W_OFF_GOAL   = 15.0     # Penalty for pushing boxes far from goals
 W_DEAD       = 5000.0   # Large penalty for deadlocking a box
-W_MOBILITY   = 5.0      # Reward for movement options (important in corridors)
-W_PARITY     = 15.0     # Bonus for acting on a priority step (own parity advantage)
+W_MOBILITY   = 0.0      # Disabled — fights exact_step gradient
+W_PARITY     = 0.1      # Tiny tie-breaker (was 15.0, caused search thrashing)
 
 _UNREACHABLE = 9999     # Distance constant for unreachable states
 # ─────────────────────────────────────────────────────────────────────────────
@@ -26,9 +26,32 @@ def _deadlock_count(boxes: FrozenSet[Tuple[int, int]], board: Board) -> int:
     """
     count = 0
     for box in boxes:
-        # If the box is unreachable to ALL goals via pushing, it's deadlocked.
+        # 1. Static deadlock (precomputed unreachable)
         if all(board.push_dist(box, g) >= _UNREACHABLE for g in board.goals):
             count += 1
+            continue
+            
+        # 2. Dynamic 2-box deadlock (adjacent boxes on a wall)
+        bx, by = box
+        if box in board.goals:
+            continue
+            
+        # Horizontal adjacency against vertical walls
+        if (bx + 1, by) in boxes and (bx + 1, by) not in board.goals:
+            # Check if there is a continuous wall above OR below both boxes
+            if ((bx, by + 1) in board.walls and (bx + 1, by + 1) in board.walls) or \
+               ((bx, by - 1) in board.walls and (bx + 1, by - 1) in board.walls):
+                count += 1
+                continue
+                
+        # Vertical adjacency against horizontal walls
+        if (bx, by + 1) in boxes and (bx, by + 1) not in board.goals:
+            # Check if there is a continuous wall left OR right of both boxes
+            if ((bx + 1, by) in board.walls and (bx + 1, by + 1) in board.walls) or \
+               ((bx - 1, by) in board.walls and (bx - 1, by + 1) in board.walls):
+                count += 1
+                continue
+
     return count
 
 
@@ -84,7 +107,8 @@ def _joint_push_chain_score(
         def feasible_score(cost: int) -> float:
             if cost >= _UNREACHABLE:
                 return 0.0
-            base = 1.0 / (1 + cost)
+            # Linear gradient ensures constant reward per step taken
+            base = float(max(0, 200 - cost))
             if cost <= remaining_steps:
                 return base  # fully achievable
             # Partially feasible: scale down proportionally
@@ -165,24 +189,24 @@ def _joint_interact_scores(
         def feasible(cost: int) -> float:
             if cost >= _UNREACHABLE:
                 return 0.0
-            base = 1.0 / (1 + cost)
+            base = float(max(0, 200 - cost))
             if cost <= remaining_steps:
                 return base
             return base * (remaining_steps / max(cost, 1))
 
         if best_attack < best_defend:
             steal_total += feasible(best_attack)
+            # Horizon fix: If attacker wins the race, defender WILL lose the box.
+            # Price the 1000 point score swing immediately to prevent mirage nodes.
+            steal_total += W_SCORE
         elif best_defend < best_attack:
             guard_total += feasible(best_defend)
         else:
             # Tie — resolve by parity at arrival
             remaining_at_conflict = remaining_steps - best_attack
             a_wins_tie = (remaining_at_conflict % 2 != 0)
-            # Note: attacker here could be A or B — we resolve generically
-            # The attacker gets it if remaining_at_conflict is odd (A priority)
-            # but we don't know which agent is "A" here.
-            # Safe: split credit equally when tied (parity resolve happens in transition)
-            steal_total += feasible(best_attack) * 0.5
+            # Split the expected value of the box loss
+            steal_total += feasible(best_attack) * 0.5 + (W_SCORE * 0.5)
             guard_total += feasible(best_defend) * 0.5
 
     return steal_total, guard_total

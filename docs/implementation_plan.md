@@ -1,4 +1,4 @@
-# Sokoban Single-Agent Implementation Plan
+  # Sokoban Single-Agent Implementation Plan
 
 ## 1. Requirements & Scope
 - **Problem**: Original single-agent Sokoban.

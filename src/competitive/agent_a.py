@@ -87,11 +87,10 @@ def best_action(
     if banned_actions:
         root_acts = [a for a in root_acts if a not in banned_actions]
     if not root_acts:
-        root_acts = [Action.NORTH] # Fallback if totally stuck
+        root_acts = [Action.NORTH]
     random.shuffle(root_acts)
         
-    best_terminal_val = -float('inf')
-    best_terminal_act = root_acts[0]
+    root_action_best_val = {act: -float('inf') for act in root_acts}
     
     # Initialize PQ with root's successors
     opp_act = _get_greedy_opp_act(state, my_pos, op_pos, board, perspective, max_steps, heuristic_cache)
@@ -117,12 +116,20 @@ def best_action(
         if new_my_pos in recent_positions and new_my_pos != my_pos:
             val -= 300
 
+        # Smart yielding: if we stood still (e.g. collision), yield if we lack priority
+        if new_my_pos == my_pos:
+            a_has_priority = ((max_steps - state.step) % 2 != 0)
+            we_have_priority = a_has_priority if perspective == 'A' else not a_has_priority
+            if not we_have_priority:
+                val -= 10.0  # Big penalty: forces yielding
+            else:
+                val -= 0.1   # Tiny penalty: holds ground
+
         # Small step cost to prefer shorter paths (much softer than before)
         val -= (ns.step - state.step) * 0.3
         
-        if ns.is_terminal(max_steps) and val > best_terminal_val:
-            best_terminal_val = val
-            best_terminal_act = act
+        if val > root_action_best_val[act]:
+            root_action_best_val[act] = val
             
         if state.step >= 6:
             print(f"[{perspective}] Root {act} -> val {val} (new_pos {new_my_pos}, recent {list(recent_positions)})")
@@ -167,28 +174,28 @@ def best_action(
             new_my_pos = ns.agent_a if perspective == 'A' else ns.agent_b
             if new_my_pos in recent_positions and new_my_pos != curr_my_pos:
                 n_val -= 300
+                
+            # Smart yielding: if we stood still (e.g. collision), yield if we lack priority
+            if new_my_pos == curr_my_pos:
+                a_has_priority = ((max_steps - curr.step) % 2 != 0)
+                we_have_priority = a_has_priority if perspective == 'A' else not a_has_priority
+                if not we_have_priority:
+                    n_val -= 10.0  # Big penalty: forces yielding
+                else:
+                    n_val -= 0.1   # Tiny penalty: holds ground
 
-            # Small step cost: prefer shorter paths but not at the expense of strategy
-            n_val -= (ns.step - curr.step) * 0.3
+            # Small step cost: prefer shorter paths but not at the expense of strategy.
+            # We must accumulate this penalty from the ROOT, otherwise deep 6-step loops
+            # will have the same penalty as 1-step moves, causing pointless wandering.
+            n_val -= (ns.step - state.step) * 0.3
             
-            if ns.is_terminal(max_steps) and n_val > best_terminal_val:
-                best_terminal_val = n_val
-                best_terminal_act = first_act
+            if n_val > root_action_best_val[first_act]:
+                root_action_best_val[first_act] = n_val
                 
             heapq.heappush(pq, (-n_val, tiebreaker, ns, first_act))
             tiebreaker += 1
 
-    if pq:
-        best_frontier_val = -pq[0][0]
-        best_frontier_act = pq[0][3]
-    else:
-        best_frontier_val = -float('inf')
-        best_frontier_act = root_acts[0]
-        
-    if best_terminal_val > best_frontier_val:
-        best_act = best_terminal_act
-    else:
-        best_act = best_frontier_act
+    best_act = max(root_action_best_val, key=root_action_best_val.get)
 
     print(f"Agent {perspective} [GBFS] expanded {nodes_expanded} nodes, chose {best_act}")
     return best_act
