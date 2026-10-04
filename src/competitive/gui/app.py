@@ -409,6 +409,8 @@ class CompetitiveApp:
                         self._start_game()
                     elif event.key == pygame.K_COMMA:
                         self.running = False
+                        self.computing = False
+                        self.pending_out = None
                         if self.step_index > 0:
                             self.step_index -= 1
                             self.prev_state = self.history[self.step_index + 1][0]
@@ -421,6 +423,8 @@ class CompetitiveApp:
                                 self._metrics = []
                     elif event.key == pygame.K_PERIOD:
                         self.running = False
+                        self.computing = False
+                        self.pending_out = None
                         if self.step_index < len(self.history) - 1:
                             self.prev_state = self.state
                             self.step_index += 1
@@ -459,7 +463,7 @@ class CompetitiveApp:
         dt_b = time.time() - t1
 
         out = resolve_joint_action_outcome(self.state, action_a, action_b, self.board, self.max_steps)
-        self.pending_out = (action_a, action_b, out, dt_a, dt_b)
+        self.pending_out = (self.state.step, action_a, action_b, out, dt_a, dt_b)
 
     def _apply_computed_step(self):
         self.computing = False
@@ -474,8 +478,11 @@ class CompetitiveApp:
             self.pending_out = None
             return
             
-        action_a, action_b, out, dt_a, dt_b = self.pending_out
+        step_idx, action_a, action_b, out, dt_a, dt_b = self.pending_out
         self.pending_out = None
+        
+        if step_idx != self.state.step:
+            return
         
         self.prev_state = self.state
         self.state = out.state
