@@ -762,7 +762,7 @@ class CompetitiveApp:
             fw, fh = dims
             frame = frame.copy()
             tint_surf = pygame.Surface(frame.get_size(), pygame.SRCALPHA)
-            tint_color = (255, 150, 150, 255) if agent_id == "A" else (150, 150, 255, 255)
+            tint_color = (255, 150, 150, 255) if label == "A" else (150, 150, 255, 255)
             tint_surf.fill(tint_color)
             frame.blit(tint_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
             
