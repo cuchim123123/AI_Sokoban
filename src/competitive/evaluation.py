@@ -241,6 +241,10 @@ def _joint_interact_scores(
             steal_total += W_SCORE
 
         elif best_defend < best_attack:
+            # The defender currently wins the race, but the attacker still
+            # needs a gradient toward the box. Otherwise every losing attack
+            # looks identical and the trailing agent never pursues it.
+            steal_total += feasible(best_attack)
             guard_total += feasible(best_defend)
 
         else:

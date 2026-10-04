@@ -171,6 +171,24 @@ class TestCompetitiveRules(unittest.TestCase):
         self.assertGreater(steal, 1000.0)
         self.assertGreater(competitive_heuristic(state, board, "A", 20), -1000.0)
 
+        losing_state = CompetitiveState(
+            (5, 3),
+            (3, 2),
+            frozenset({(3, 3)}),
+            frozenset(),
+            frozenset({(3, 3)}),
+            0,
+        )
+        losing_attack, _ = _joint_interact_scores(
+            losing_state.agent_a,
+            losing_state.agent_b,
+            losing_state.boxes_on_goals_b,
+            board,
+            20,
+        )
+        self.assertGreater(losing_attack, 0.0)
+        self.assertLess(losing_attack, 1000.0)
+
     def test_agent_does_not_push_its_own_finished_box(self):
         state = CompetitiveState(
             (3, 3),
