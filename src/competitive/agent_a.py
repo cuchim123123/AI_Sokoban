@@ -2,7 +2,6 @@
 Agent controller — Greedy Best-First Search (GBFS).
 """
 import time
-import heapq
 from collections import deque
 from typing import Optional, Tuple, Deque, Dict, List
 
@@ -12,6 +11,8 @@ from src.competitive.evaluation import competitive_heuristic
 
 # ── Search Constants ──────────────────────────────────────────────────────────
 TIME_LIMIT = 0.90
+SEARCH_DEPTH = 6
+BEAM_WIDTH = 24
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _cache_key(
@@ -124,10 +125,6 @@ def best_action(
 ) -> Action:
     deadline = time.time() + time_limit
     
-    # Priority queue for GBFS: (-robust_value, tiebreaker, state, first_action)
-    pq = []
-    tiebreaker = 0
-    
     visited = set()
     visited.add(state._hash)
     
@@ -142,7 +139,10 @@ def best_action(
     root_action_best_val = {act: -float('inf') for act in root_acts}
     root_action_revisits = {act: False for act in root_acts}
 
-    # Initialize PQ with the worst response for each own action.
+    # Seed one frontier per root action. Keeping roots separate prevents a
+    # temporarily unattractive but strategically necessary route from being
+    # starved by a better-looking WAIT branch.
+    frontiers = {act: [] for act in root_acts}
     for act in root_acts:
         val, _, ns = _robust_successor(
             state, act, board, perspective, max_steps, heuristic_cache
@@ -155,37 +155,48 @@ def best_action(
         
         if val > root_action_best_val[act]:
             root_action_best_val[act] = val
-        heapq.heappush(pq, (-val, tiebreaker, ns, act))
-        tiebreaker += 1
+        frontiers[act].append((val, ns))
         visited.add(ns._hash)
-        
+
     nodes_expanded = 0
-    
-    while pq and time.time() < deadline:
-        neg_val, _, curr, first_act = heapq.heappop(pq)
-        
-        if curr.is_terminal(max_steps):
-            continue
-            
-        nodes_expanded += 1
-        
-        curr_my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
-        curr_op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
-        acts = get_valid_actions(curr_my_pos, curr_op_pos, curr.boxes, board)
-        for act in acts:
-            n_val, _, ns = _robust_successor(
-                curr, act, board, perspective, max_steps, heuristic_cache
-            )
-            
-            if ns._hash in visited:
-                continue
-            visited.add(ns._hash)
-            
-            if n_val > root_action_best_val[first_act]:
-                root_action_best_val[first_act] = n_val
-                
-            heapq.heappush(pq, (-n_val, tiebreaker, ns, first_act))
-            tiebreaker += 1
+    for _ in range(1, SEARCH_DEPTH):
+        if time.time() >= deadline:
+            break
+
+        next_frontiers = {act: [] for act in root_acts}
+        for first_act in root_acts:
+            candidates = []
+            for _, curr in frontiers[first_act]:
+                if curr.is_terminal(max_steps):
+                    continue
+
+                nodes_expanded += 1
+                curr_my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
+                curr_op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
+                for next_action in get_valid_actions(
+                    curr_my_pos, curr_op_pos, curr.boxes, board
+                ):
+                    n_val, _, ns = _robust_successor(
+                        curr,
+                        next_action,
+                        board,
+                        perspective,
+                        max_steps,
+                        heuristic_cache,
+                    )
+                    if ns._hash in visited:
+                        continue
+                    visited.add(ns._hash)
+                    candidates.append((n_val, ns))
+                    if n_val > root_action_best_val[first_act]:
+                        root_action_best_val[first_act] = n_val
+
+            candidates.sort(key=lambda candidate: candidate[0], reverse=True)
+            next_frontiers[first_act] = candidates[:BEAM_WIDTH]
+
+        frontiers = next_frontiers
+        if not any(frontiers.values()):
+            break
 
     non_revisiting_actions = [
         act for act in root_acts if not root_action_revisits[act]
