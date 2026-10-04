@@ -263,6 +263,7 @@ def best_action(
             include_wait=True,
         )
     root_action_best_val = {act: -float('inf') for act in root_acts}
+    root_action_initial_val = {act: -float('inf') for act in root_acts}
     root_action_revisits = {act: False for act in root_acts}
     root_action_progress = {act: 0 for act in root_acts}
     own_score = state.score_a() if perspective == 'A' else state.score_b()
@@ -299,6 +300,7 @@ def best_action(
         
         if val > root_action_best_val[act]:
             root_action_best_val[act] = val
+        root_action_initial_val[act] = val
         frontiers[act].append((val, ns))
         visited.add(ns._hash)
 
@@ -344,16 +346,31 @@ def best_action(
         if not any(frontiers.values()):
             break
 
-    non_revisiting_actions = [
-        act for act in root_acts if not root_action_revisits[act]
-    ]
-    eligible_actions = non_revisiting_actions or root_acts
+    best_overall_progress = max(root_action_progress.values())
+    if best_overall_progress > 0:
+        # Returning to a recent square is acceptable when it is the first
+        # step of a concrete push or conflict-winning route.
+        eligible_actions = [
+            act for act in root_acts
+            if root_action_progress[act] == best_overall_progress
+        ]
+    else:
+        non_revisiting_actions = [
+            act for act in root_acts if not root_action_revisits[act]
+        ]
+        eligible_actions = non_revisiting_actions or root_acts
     best_progress = max(root_action_progress[act] for act in eligible_actions)
     progressing_actions = [
         act for act in eligible_actions
         if root_action_progress[act] == best_progress
     ]
-    return max(progressing_actions, key=root_action_best_val.get)
+    return max(
+        progressing_actions,
+        key=lambda act: (
+            root_action_initial_val[act],
+            root_action_best_val[act],
+        ),
+    )
 
 
 class AgentA:

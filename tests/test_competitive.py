@@ -276,6 +276,28 @@ class TestCompetitiveRules(unittest.TestCase):
         )
         self.assertEqual(action, Action.WEST)
 
+    def test_odd_priority_move_beats_deeper_misleading_branch(self):
+        _, board = parse_competitive_map("maps/competitive/arena_open.txt")
+        state = CompetitiveState(
+            (5, 4),
+            (6, 5),
+            frozenset({(4, 5), (8, 5)}),
+            frozenset({(4, 5)}),
+            frozenset({(8, 5)}),
+            7,
+        )
+        action = best_action(
+            state,
+            board,
+            20,
+            "A",
+            deque([(5, 5)], maxlen=4),
+            {},
+            {},
+            time_limit=0.15,
+        )
+        self.assertEqual(action, Action.SOUTH)
+
     def test_tied_agent_prefers_approaching_opponent_goal(self):
         _, board = parse_competitive_map("maps/competitive/capacity_lab.txt")
         state = CompetitiveState(
