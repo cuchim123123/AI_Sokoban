@@ -13,6 +13,7 @@ from src.competitive.evaluation import competitive_heuristic
 TIME_LIMIT = 0.90
 SEARCH_DEPTH = 6
 BEAM_WIDTH = 24
+BLOCKED_ACTION_PENALTY = 250.0
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _cache_key(
@@ -101,9 +102,10 @@ def _robust_successor(
             # voluntarily destroy its own score while pursuing another route.
             effective_value = float('-inf')
         if own_action != Action.WAIT and own_position_after == own_position_before:
-            # A rejected move or push is not a useful response to an adversarial
-            # opponent. Treat any response that blocks our action as unsafe.
-            effective_value = float('-inf')
+            # A blocking response is a bad outcome, but not proof that the
+            # strategic route is impossible. Keeping it finite lets an agent
+            # contest a defended box instead of freezing on WAIT forever.
+            effective_value -= BLOCKED_ACTION_PENALTY
         candidates.append((
             effective_value,
             opponent_action,

@@ -110,7 +110,15 @@ class TestCompetitiveRules(unittest.TestCase):
             50,
             {},
         )
-        self.assertEqual(value, float("-inf"))
+        wait_value, _, _ = _robust_successor(
+            state,
+            Action.WAIT,
+            self.board,
+            "B",
+            50,
+            {},
+        )
+        self.assertLess(value, wait_value)
 
     def test_recent_position_revisit_is_not_selected_when_wait_is_safe(self):
         state = CompetitiveState(
