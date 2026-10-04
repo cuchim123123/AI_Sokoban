@@ -58,7 +58,7 @@ class TestCompetitiveRules(unittest.TestCase):
         self.assertEqual(out.state.agent_b, (3, 3))
         self.assertTrue(out.conflict)
 
-    def test_competing_pushes_fail_for_both(self):
+    def test_competing_pushes_use_priority_and_yield(self):
         out = resolve_joint_action_outcome(
             self.state((2, 3), (4, 3), frozenset({(3, 3)})),
             Action.EAST,
@@ -66,7 +66,22 @@ class TestCompetitiveRules(unittest.TestCase):
             self.board,
             10,
         )
-        self.assertEqual(out.state.boxes, frozenset({(3, 3)}))
+        self.assertEqual(out.state.boxes, frozenset({(2, 3)}))
+        self.assertEqual(out.state.agent_b, (3, 3))
+        self.assertNotEqual(out.state.agent_a, (2, 3))
+        self.assertTrue(out.conflict)
+
+    def test_push_destination_conflict_uses_priority_and_yield(self):
+        out = resolve_joint_action_outcome(
+            self.state((2, 3), (4, 4), frozenset({(3, 3)})),
+            Action.EAST,
+            Action.NORTH,
+            self.board,
+            11,
+        )
+        self.assertEqual(out.state.boxes, frozenset({(4, 3)}))
+        self.assertEqual(out.state.agent_a, (3, 3))
+        self.assertNotEqual(out.state.agent_b, (4, 3))
         self.assertTrue(out.conflict)
 
     def test_wait_is_explicit_dead_end_fallback(self):
@@ -127,7 +142,7 @@ class TestCompetitiveRules(unittest.TestCase):
             50,
             {},
         )
-        self.assertLess(value, wait_value)
+        self.assertGreater(value, wait_value)
 
     def test_recent_position_revisit_is_not_selected_when_wait_is_safe(self):
         state = CompetitiveState(

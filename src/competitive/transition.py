@@ -31,6 +31,7 @@ def resolve_joint_action_outcome(
     board: Board,
     max_steps: int,
     _resolve_yield: bool = True,
+    _allow_occupied_entry: bool = False,
 ):
     """
     Deterministic joint transition.  Returns next CompetitiveState (step+1).
@@ -82,11 +83,42 @@ def resolve_joint_action_outcome(
         valid_b = False
         conflict_occurred = True
 
+    winner = 'A' if (max_steps - state.step) % 2 else 'B'
+
+    def _priority_resolve(winning_perspective: str):
+        if not _resolve_yield:
+            return None
+        winning_action = action_a if winning_perspective == 'A' else action_b
+        yielding_perspective = 'B' if winning_perspective == 'A' else 'A'
+        alternative = _best_yield_action(
+            state, winning_action, yielding_perspective, board, max_steps
+        )
+        if alternative is None:
+            return None
+        if yielding_perspective == 'A':
+            next_action_a, next_action_b = alternative, winning_action
+        else:
+            next_action_a, next_action_b = winning_action, alternative
+        resolved = resolve_joint_action_outcome(
+            state,
+            next_action_a,
+            next_action_b,
+            board,
+            max_steps,
+            _resolve_yield=False,
+            _allow_occupied_entry=True,
+        )
+        resolved.conflict = True
+        return resolved
+
     # Rules 7.3 / 7.4 — both push the same box in any directions.
     # This takes precedence over same-destination handling because both
     # agents' destinations are the shared box cell.
     if valid_a and valid_b and push_a_box is not None and push_b_box is not None:
         if push_a_box == push_b_box:
+            resolved = _priority_resolve(winner)
+            if resolved is not None:
+                return resolved
             _fail_both()
 
     # Rule 7.1 — both target the same destination cell. The priority winner
@@ -95,36 +127,9 @@ def resolve_joint_action_outcome(
     same_destination_conflict = False
     if valid_a and valid_b and dest_a == dest_b:
         if action_a != Action.WAIT or action_b != Action.WAIT:
-            if _resolve_yield:
-                if (max_steps - state.step) % 2:
-                    yielding_perspective = 'B'
-                    winning_action = action_a
-                else:
-                    yielding_perspective = 'A'
-                    winning_action = action_b
-
-                alternative = _best_yield_action(
-                    state,
-                    winning_action,
-                    yielding_perspective,
-                    board,
-                    max_steps,
-                )
-                if alternative is not None:
-                    if yielding_perspective == 'A':
-                        action_a, action_b = alternative, winning_action
-                    else:
-                        action_a, action_b = winning_action, alternative
-                    resolved = resolve_joint_action_outcome(
-                        state,
-                        action_a,
-                        action_b,
-                        board,
-                        max_steps,
-                        _resolve_yield=False,
-                    )
-                    resolved.conflict = True
-                    return resolved
+            resolved = _priority_resolve(winner)
+            if resolved is not None:
+                return resolved
 
             same_destination_conflict = True
             conflict_occurred = True
@@ -135,7 +140,21 @@ def resolve_joint_action_outcome(
 
     # Rule 7.2 — agents try to swap positions.
     if valid_a and valid_b and dest_a == pos_b and dest_b == pos_a:
+        resolved = _priority_resolve(winner)
+        if resolved is not None:
+            return resolved
         _fail_both()
+
+    # A push destination and the other agent's destination are disputed too.
+    if valid_a and valid_b:
+        if push_a_dest is not None and push_a_dest == dest_b:
+            resolved = _priority_resolve(winner)
+            if resolved is not None:
+                return resolved
+        if push_b_dest is not None and push_b_dest == dest_a:
+            resolved = _priority_resolve(winner)
+            if resolved is not None:
+                return resolved
 
     # Rule 7.5 — a push into the other agent fails, while the other move may
     # still commit if it is otherwise valid.
@@ -149,10 +168,10 @@ def resolve_joint_action_outcome(
 
     # An agent cannot enter the other agent's current cell, even when the
     # other agent is moving away during this joint step.
-    if valid_a and not same_destination_conflict and action_a != Action.WAIT and dest_a == pos_b:
+    if valid_a and not _allow_occupied_entry and not same_destination_conflict and action_a != Action.WAIT and dest_a == pos_b:
         valid_a = False
         conflict_occurred = True
-    if valid_b and not same_destination_conflict and action_b != Action.WAIT and dest_b == pos_a:
+    if valid_b and not _allow_occupied_entry and not same_destination_conflict and action_b != Action.WAIT and dest_b == pos_a:
         valid_b = False
         conflict_occurred = True
 
