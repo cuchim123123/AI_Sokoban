@@ -407,7 +407,8 @@ class CompetitiveApp:
                         self.screen = pygame.display.set_mode((1024, 768))
                     elif event.key == pygame.K_r:
                         self._start_game()
-                    elif event.key == pygame.K_LEFT and not self.running:
+                    elif event.key == pygame.K_COMMA:
+                        self.running = False
                         if self.step_index > 0:
                             self.step_index -= 1
                             self.prev_state = self.history[self.step_index + 1][0]
@@ -418,7 +419,8 @@ class CompetitiveApp:
                                 self._metrics = [m for _, _, m in self.history[1:self.step_index+1]]
                             else:
                                 self._metrics = []
-                    elif event.key == pygame.K_RIGHT and not self.running:
+                    elif event.key == pygame.K_PERIOD:
+                        self.running = False
                         if self.step_index < len(self.history) - 1:
                             self.prev_state = self.state
                             self.step_index += 1
@@ -709,11 +711,11 @@ class CompetitiveApp:
             self.screen.blit(last_txt, (30, ui_top + 55))
 
         if not self.running and not self.finished:
-            ctrl = self.font_sm.render("SPACE=start | R=restart | M=menu", True, C_TEXT_DIM)
+            ctrl = self.font_sm.render("SPACE=start | [ , ]=scrub | R=restart | M=menu", True, C_TEXT_DIM)
         elif self.running:
-            ctrl = self.font_sm.render("SPACE=pause | R=restart | M=menu", True, C_TEXT_DIM)
+            ctrl = self.font_sm.render("SPACE=pause | [ , ]=scrub | R=restart | M=menu", True, C_TEXT_DIM)
         else:
-            ctrl = self.font_sm.render("SPACE=unpause | R=restart | M=menu", True, C_TEXT_DIM)
+            ctrl = self.font_sm.render("SPACE=unpause | [ , ]=scrub | R=restart | M=menu", True, C_TEXT_DIM)
         self.screen.blit(ctrl, (30, ui_top + 90))
 
     def _draw_result_overlay(self):
