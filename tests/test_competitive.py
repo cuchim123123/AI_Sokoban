@@ -208,6 +208,28 @@ class TestCompetitiveRules(unittest.TestCase):
         )
         self.assertEqual(value, float("-inf"))
 
+    def test_search_never_selects_own_finished_box_push(self):
+        _, board = parse_competitive_map("maps/competitive/capacity_lab.txt")
+        state = CompetitiveState(
+            (7, 8),
+            (7, 6),
+            frozenset({(5, 5), (8, 8), (13, 5)}),
+            frozenset({(5, 5), (8, 8)}),
+            frozenset({(13, 5)}),
+            16,
+        )
+        action = best_action(
+            state,
+            board,
+            40,
+            "A",
+            deque(maxlen=4),
+            {},
+            {},
+            time_limit=0.15,
+        )
+        self.assertNotEqual(action, Action.EAST)
+
     def test_tied_agent_prefers_approaching_opponent_goal(self):
         _, board = parse_competitive_map("maps/competitive/capacity_lab.txt")
         state = CompetitiveState(
@@ -247,6 +269,28 @@ class TestCompetitiveRules(unittest.TestCase):
             24,
         )
         self.assertGreater(score, 0.0)
+
+    def test_root_action_repositions_behind_remaining_box(self):
+        _, board = parse_competitive_map("maps/competitive/capacity_lab.txt")
+        state = CompetitiveState(
+            (3, 7),
+            (10, 4),
+            frozenset({(4, 8), (5, 5), (13, 5)}),
+            frozenset({(5, 5)}),
+            frozenset({(13, 5)}),
+            11,
+        )
+        action = best_action(
+            state,
+            board,
+            40,
+            "A",
+            deque(maxlen=4),
+            {},
+            {},
+            time_limit=0.15,
+        )
+        self.assertEqual(action, Action.SOUTH)
 
 
 if __name__ == "__main__":

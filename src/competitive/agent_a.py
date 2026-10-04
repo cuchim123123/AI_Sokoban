@@ -14,6 +14,7 @@ TIME_LIMIT = 0.90
 SEARCH_DEPTH = 6
 BEAM_WIDTH = 24
 BLOCKED_ACTION_PENALTY = 250.0
+TACTICAL_PROGRESS_WEIGHT = 20.0
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _cache_key(
@@ -66,6 +67,70 @@ def _pushes_own_finished_box(
     return destination in own_goals
 
 
+def _push_approach_distance(pos, box, board):
+    distances = []
+    for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
+        approach = (box[0] - dx, box[1] - dy)
+        push_to = (box[0] + dx, box[1] + dy)
+        if approach in board.walls or push_to in board.walls:
+            continue
+        distances.append(board.dist(pos, approach))
+    return min(distances, default=9999)
+
+
+def _tactical_target(state, board, perspective, max_steps):
+    """Choose one concrete box objective for directional action guidance."""
+    own_score = state.score_a() if perspective == 'A' else state.score_b()
+    opponent_score = state.score_b() if perspective == 'A' else state.score_a()
+    own_pos = state.agent_a if perspective == 'A' else state.agent_b
+    occupied = state.boxes_on_goals_a | state.boxes_on_goals_b
+
+    # When behind or when no neutral box remains, pursue an opponent goal.
+    opponent_goals = (
+        state.boxes_on_goals_b
+        if perspective == 'A'
+        else state.boxes_on_goals_a
+    )
+    if opponent_goals and (opponent_score > own_score or not (state.boxes - occupied)):
+        target = min(
+            opponent_goals,
+            key=lambda box: _push_approach_distance(own_pos, box, board),
+        )
+        return ('steal', target, None)
+
+    free_goals = board.goals - occupied
+    candidates = []
+    for box in state.boxes - occupied:
+        for goal in free_goals:
+            cost = board.exact_steps(box, own_pos, goal)
+            if cost < max_steps - state.step:
+                candidates.append((cost, box, goal))
+
+    if candidates:
+        _, box, goal = min(candidates)
+        return ('finish', box, goal)
+
+    if opponent_goals:
+        target = min(
+            opponent_goals,
+            key=lambda box: _push_approach_distance(own_pos, box, board),
+        )
+        return ('steal', target, None)
+    return None
+
+
+def _tactical_cost(state, board, perspective, target):
+    if target is None:
+        return 9999
+    kind, box, goal = target
+    pos = state.agent_a if perspective == 'A' else state.agent_b
+    if box not in state.boxes:
+        return 9999
+    if kind == 'steal':
+        return _push_approach_distance(pos, box, board)
+    return board.exact_steps(box, pos, goal)
+
+
 def _robust_successor(
     curr: CompetitiveState,
     own_action: Action,
@@ -79,6 +144,8 @@ def _robust_successor(
     op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
     opponent_actions = get_valid_actions(op_pos, my_pos, curr.boxes, board)
     candidates = []
+    target = _tactical_target(curr, board, perspective, max_steps)
+    target_cost_before = _tactical_cost(curr, board, perspective, target)
     pushes_own_finished_box = _pushes_own_finished_box(
         curr, own_action, perspective
     )
@@ -97,6 +164,13 @@ def _robust_successor(
         effective_value = _value(
             next_state, board, perspective, max_steps, heuristic_cache
         )
+        target_cost_after = _tactical_cost(
+            next_state, board, perspective, target
+        )
+        if target_cost_before < 9999 and target_cost_after < 9999:
+            effective_value += TACTICAL_PROGRESS_WEIGHT * (
+                target_cost_before - target_cost_after
+            )
         if pushes_own_finished_box:
             # The opponent may steal a credited box, but an agent should not
             # voluntarily destroy its own score while pursuing another route.
@@ -134,12 +208,17 @@ def best_action(
     op_pos = state.agent_b if perspective == 'A' else state.agent_a
     
     root_acts = get_valid_actions(my_pos, op_pos, state.boxes, board)
+    root_acts = [
+        action for action in root_acts
+        if not _pushes_own_finished_box(state, action, perspective)
+    ]
     if banned_actions:
         root_acts = [a for a in root_acts if a not in banned_actions]
     if not root_acts:
         root_acts = [Action.NORTH]
     root_action_best_val = {act: -float('inf') for act in root_acts}
     root_action_revisits = {act: False for act in root_acts}
+    root_action_progress = {act: 0 for act in root_acts}
 
     # Seed one frontier per root action. Keeping roots separate prevents a
     # temporarily unattractive but strategically necessary route from being
@@ -154,6 +233,11 @@ def best_action(
         root_action_revisits[act] = (
             new_my_pos != my_pos and new_my_pos in recent_positions
         )
+        target = _tactical_target(state, board, perspective, max_steps)
+        before_cost = _tactical_cost(state, board, perspective, target)
+        after_cost = _tactical_cost(ns, board, perspective, target)
+        if before_cost < 9999 and after_cost < 9999:
+            root_action_progress[act] = before_cost - after_cost
         
         if val > root_action_best_val[act]:
             root_action_best_val[act] = val
@@ -178,6 +262,8 @@ def best_action(
                 for next_action in get_valid_actions(
                     curr_my_pos, curr_op_pos, curr.boxes, board
                 ):
+                    if _pushes_own_finished_box(curr, next_action, perspective):
+                        continue
                     n_val, _, ns = _robust_successor(
                         curr,
                         next_action,
@@ -204,7 +290,12 @@ def best_action(
         act for act in root_acts if not root_action_revisits[act]
     ]
     eligible_actions = non_revisiting_actions or root_acts
-    return max(eligible_actions, key=root_action_best_val.get)
+    best_progress = max(root_action_progress[act] for act in eligible_actions)
+    progressing_actions = [
+        act for act in eligible_actions
+        if root_action_progress[act] == best_progress
+    ]
+    return max(progressing_actions, key=root_action_best_val.get)
 
 
 class AgentA:
