@@ -6,12 +6,13 @@ from src.competitive.state import CompetitiveState, Board
 # Tweak these to change the AI's behavior.
 
 W_SCORE      = 1000.0   # Reward for each point (box on goal)
-W_CHAIN      = 150.0    # Reward for being in position to push an unplaced box to a goal
-W_STEAL      = 120.0    # Reward for being in position to steal an opponent's box
-W_GUARD      = 80.0     # Reward for guarding your own scored boxes
-W_OFF_GOAL   = 10.0     # Penalty for pushing boxes away from goals (reduces scatter)
-W_DEAD       = 10000.0  # Massive penalty for causing a deadlock (permanently stuck box)
-W_MOBILITY   = 2.0      # Small reward for having more movement options (prevents getting trapped)
+W_CHAIN      = 200.0    # Reward for being in position to push an unplaced box to a goal
+W_STEAL      = 80.0     # Reward for stealing opponent's scored box (reduced — feasibility-gated)
+W_GUARD      = 100.0    # Reward for guarding own scored boxes (raised — losing a point = -1000)
+W_OFF_GOAL   = 15.0     # Penalty for pushing boxes far from goals (discourages scatter)
+W_DEAD       = 5000.0   # Large penalty for deadlocking a box
+W_MOBILITY   = 5.0      # Reward for movement options (important in corridors)
+W_PARITY     = 15.0     # Bonus for acting on a priority step (own parity advantage)
 
 _UNREACHABLE = 9999     # Distance constant for unreachable states
 # ─────────────────────────────────────────────────────────────────────────────
@@ -31,81 +32,160 @@ def _deadlock_count(boxes: FrozenSet[Tuple[int, int]], board: Board) -> int:
     return count
 
 
-def _push_chain_score(
-    agent_pos: Tuple[int, int],
+def _joint_push_chain_score(
+    pos_a: Tuple[int, int],
+    pos_b: Tuple[int, int],
     boxes: FrozenSet[Tuple[int, int]],
     board: Board,
     occupied_goals: FrozenSet[Tuple[int, int]],
-) -> float:
+    remaining_steps: int,
+) -> Tuple[float, float]:
     """
-    Reward for being well-positioned to push an unplaced box to a free goal.
-    Uses proper `push_dist` to ensure we don't try to push unpushable boxes.
+    Evaluates scoring potential for every unplaced box.
+
+    Key improvements over previous version:
+    - Uses TOTAL COST = walk_dist(agent, approach) + push_dist(box, goal).
+      Each agent independently picks the best goal for them, not just the
+      goal with fewest pushes.
+    - Feasibility gate: if total_cost > remaining_steps, the agent gets
+      scaled-down credit (proportional to how far out of reach it is).
+    - Parity tie-breaking: when both agents have equal total cost to the
+      same contested box, one of them wins deterministically based on
+      the parity rule at the step of arrival.
     """
     free_goals = board.goals - occupied_goals
     unplaced = boxes - occupied_goals
 
     if not free_goals or not unplaced:
-        return 0.0
+        return 0.0, 0.0
 
-    best_scores = []
+    scores_a: list = []
+    scores_b: list = []
+
     for box in unplaced:
-        best_for_box = -1.0
+        # Find best (goal, approach) for A: minimise own total cost
+        best_cost_a = _UNREACHABLE
+        best_cost_b = _UNREACHABLE
+
         for goal in free_goals:
-            # How many actual PUSHES required to get the box to this goal?
-            pushes = board.push_dist(box, goal)
-            if pushes >= _UNREACHABLE:
-                continue
+            # We use the precomputed EXACT step count (walking + pushing + maneuvering)
+            cost_a = board.exact_steps(box, pos_a, goal)
+            cost_b = board.exact_steps(box, pos_b, goal)
             
-            # Find which direction we should push the box FIRST to optimally reach the goal.
-            # A good heuristic is to look at adjacent cells and see which one strictly reduces push_dist.
-            best_approach_dist = _UNREACHABLE
-            for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
-                push_dest = (box[0] + dx, box[1] + dy)
-                if board.push_dist(push_dest, goal) < pushes:
-                    # To push the box to push_dest, agent must stand at (box[0]-dx, box[1]-dy)
-                    approach = (box[0] - dx, box[1] - dy)
-                    if approach not in board.walls:
-                        d = board.dist(agent_pos, approach)
-                        if d < best_approach_dist:
-                            best_approach_dist = d
+            if cost_a < best_cost_a:
+                best_cost_a = cost_a
+            if cost_b < best_cost_b:
+                best_cost_b = cost_b
 
-            if best_approach_dist < _UNREACHABLE:
-                # Score combines box proximity to goal, and agent proximity to the CORRECT push side
-                score = 1.0 / (1 + pushes) + 0.8 / (1 + best_approach_dist)
-                if score > best_for_box:
-                    best_for_box = score
+        if best_cost_a >= _UNREACHABLE and best_cost_b >= _UNREACHABLE:
+            continue
 
-        if best_for_box > 0:
-            best_scores.append(best_for_box)
+        # Feasibility scaling: agent gets less credit if they can't finish in time
+        def feasible_score(cost: int) -> float:
+            if cost >= _UNREACHABLE:
+                return 0.0
+            base = 1.0 / (1 + cost)
+            if cost <= remaining_steps:
+                return base  # fully achievable
+            # Partially feasible: scale down proportionally
+            return base * (remaining_steps / max(cost, 1))
 
-    best_scores.sort(reverse=True)
-    return sum(best_scores[:2])  # Consider top 2 opportunities
+        score_a = feasible_score(best_cost_a)
+        score_b = feasible_score(best_cost_b)
+
+        if best_cost_a < best_cost_b:
+            # A clearly wins this race
+            scores_a.append(score_a)
+        elif best_cost_b < best_cost_a:
+            # B clearly wins this race
+            scores_b.append(score_b)
+        else:
+            # True tie in total cost — use parity at the step of arrival
+            # arrival_step relative to remaining: who wins the conflict then?
+            # remaining_steps % 2 != 0  => A has priority NOW
+            # Each step we take, parity flips. After `best_cost_a` steps:
+            # remaining at conflict = remaining_steps - best_cost_a
+            remaining_at_conflict = remaining_steps - best_cost_a
+            a_wins_tie = (remaining_at_conflict % 2 != 0)
+            if a_wins_tie:
+                scores_a.append(score_a)
+            else:
+                scores_b.append(score_b)
+
+    scores_a.sort(reverse=True)
+    scores_b.sort(reverse=True)
+    return sum(scores_a[:2]), sum(scores_b[:2])
 
 
-def _interact_score(
-    agent_pos: Tuple[int, int],
+def _joint_interact_scores(
+    pos_attacker: Tuple[int, int],
+    pos_defender: Tuple[int, int],
     target_boxes: FrozenSet[Tuple[int, int]],
     board: Board,
-) -> float:
+    remaining_steps: int,
+) -> Tuple[float, float]:
     """
-    General score for being close to a specific set of boxes (used for stealing or guarding).
-    Rewards the agent for being on a valid push-approach cell next to the target box.
+    Evaluates steal vs guard race for scored boxes.
+
+    Key improvements:
+    - Feasibility gate: steal/guard credit scales to zero if impossible in time.
+    - Body-blocking: defender standing ON the box cell is a valid full block.
+    - Parity tie-breaking: equal distances resolved by priority rule.
+    Returns (steal_score, guard_score) from attacker/defender perspectives.
     """
     if not target_boxes:
-        return 0.0
+        return 0.0, 0.0
 
-    best = 0.0
+    steal_total = 0.0
+    guard_total = 0.0
+
     for box in target_boxes:
+        # Attacker needs to reach any valid push-approach cell
+        best_attack = _UNREACHABLE
+        # Defender can block by reaching any push-approach cell OR the box cell itself
+        best_defend = _UNREACHABLE
+
+        # Defender body-block: stand on the box's own cell (blocks all 4 push directions)
+        d_on_box = board.dist(pos_defender, box)
+        if d_on_box < best_defend:
+            best_defend = d_on_box
+
         for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
             approach = (box[0] - dx, box[1] - dy)
-            push_to = (box[0] + dx, box[1] + dy)
-            if approach not in board.walls and push_to not in board.walls:
-                d = board.dist(agent_pos, approach)
-                if d < _UNREACHABLE:
-                    score = 1.0 / (1 + d)
-                    if score > best:
-                        best = score
-    return best
+            push_to  = (box[0] + dx, box[1] + dy)
+            if approach in board.walls or push_to in board.walls:
+                continue
+            da = board.dist(pos_attacker, approach)
+            dd = board.dist(pos_defender, approach)
+            if da < best_attack:
+                best_attack = da
+            if dd < best_defend:
+                best_defend = dd
+
+        def feasible(cost: int) -> float:
+            if cost >= _UNREACHABLE:
+                return 0.0
+            base = 1.0 / (1 + cost)
+            if cost <= remaining_steps:
+                return base
+            return base * (remaining_steps / max(cost, 1))
+
+        if best_attack < best_defend:
+            steal_total += feasible(best_attack)
+        elif best_defend < best_attack:
+            guard_total += feasible(best_defend)
+        else:
+            # Tie — resolve by parity at arrival
+            remaining_at_conflict = remaining_steps - best_attack
+            a_wins_tie = (remaining_at_conflict % 2 != 0)
+            # Note: attacker here could be A or B — we resolve generically
+            # The attacker gets it if remaining_at_conflict is odd (A priority)
+            # but we don't know which agent is "A" here.
+            # Safe: split credit equally when tied (parity resolve happens in transition)
+            steal_total += feasible(best_attack) * 0.5
+            guard_total += feasible(best_defend) * 0.5
+
+    return steal_total, guard_total
 
 
 def _off_goal_penalty(
@@ -160,27 +240,38 @@ def competitive_heuristic(
     score_a = state.score_a()
     score_b = state.score_b()
     occupied = state.boxes_on_goals_a | state.boxes_on_goals_b
+    remaining = max_steps - state.step
 
     # Time weight: securing a score earlier is worth more, up to a 50% bonus.
-    remaining = max_steps - state.step
     time_weight = 1.0 + 0.5 * (remaining / max(max_steps, 1))
 
-    # Push-chain: positioning to score neutral boxes
-    chain_a = _push_chain_score(state.agent_a, state.boxes, board, occupied)
-    chain_b = _push_chain_score(state.agent_b, state.boxes, board, occupied)
+    # Push-chain: positioning to score neutral boxes (with race + horizon awareness)
+    chain_a, chain_b = _joint_push_chain_score(
+        state.agent_a, state.agent_b, state.boxes, board, occupied, remaining
+    )
 
-    # Steal: positioning to knock opponent's box off a goal
-    steal_a = _interact_score(state.agent_a, state.boxes_on_goals_b, board)
-    steal_b = _interact_score(state.agent_b, state.boxes_on_goals_a, board)
-    
-    # Guard: positioning to defend own boxes on goals from being stolen
-    guard_a = _interact_score(state.agent_a, state.boxes_on_goals_a, board)
-    guard_b = _interact_score(state.agent_b, state.boxes_on_goals_b, board)
-
-    # Shared penalties are removed to ensure strictly zero-sum Minimax evaluation.
+    # Steal vs Guard races (feasibility-gated by remaining steps)
+    steal_a, guard_b = _joint_interact_scores(
+        state.agent_a, state.agent_b, state.boxes_on_goals_b, board, remaining
+    )
+    steal_b, guard_a = _joint_interact_scores(
+        state.agent_b, state.agent_a, state.boxes_on_goals_a, board, remaining
+    )
 
     mob_a = _mobility(state.agent_a, state.boxes, board)
     mob_b = _mobility(state.agent_b, state.boxes, board)
+
+    # Shared board penalties (applied symmetrically — reduce total resource pool damage)
+    deadlocks  = _deadlock_count(state.boxes, board)
+    off_goal   = _off_goal_penalty(state.boxes, board, occupied)
+
+    # Parity bonus: on my priority step, any conflict resolves in my favour.
+    # This gives a small nudge to be aggressive when priority is mine.
+    a_has_priority = (remaining % 2 != 0)
+    if perspective == 'A':
+        parity_bonus = W_PARITY if a_has_priority else -W_PARITY
+    else:
+        parity_bonus = W_PARITY if not a_has_priority else -W_PARITY
 
     if perspective == 'A':
         own_score, opp_score = score_a, score_b
@@ -196,9 +287,12 @@ def competitive_heuristic(
         own_mob, opp_mob     = mob_b, mob_a
 
     return (
-        W_SCORE * time_weight * (own_score - opp_score)
-        + W_CHAIN * (own_chain - opp_chain)
-        + W_STEAL * own_steal - (W_STEAL * opp_steal)
-        + W_GUARD * own_guard - (W_GUARD * opp_guard)
+        W_SCORE    * time_weight * (own_score - opp_score)
+        + W_CHAIN  * (own_chain - opp_chain)
+        + W_STEAL  * own_steal  - W_STEAL * opp_steal
+        + W_GUARD  * own_guard  - W_GUARD * opp_guard
         + W_MOBILITY * (own_mob - opp_mob)
+        + parity_bonus
+        - W_DEAD     * deadlocks
+        - W_OFF_GOAL * off_goal
     )

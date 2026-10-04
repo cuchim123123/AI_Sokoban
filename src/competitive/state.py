@@ -15,7 +15,7 @@ class Action(Enum):
 
 class Board:
     """Static board information — walls, goals, dimensions. Created once and shared."""
-    __slots__ = ("walls", "goals", "width", "height", "floor_cells", "distances", "push_costs")
+    __slots__ = ("walls", "goals", "width", "height", "floor_cells", "distances", "push_costs", "exact_step_costs")
 
     def __init__(
         self,
@@ -54,6 +54,57 @@ class Board:
         # Precompute push distances
         from src.heuristics.push_distance import precompute_push_costs
         self.push_costs = precompute_push_costs(self)
+
+        # Precompute EXACT minimum steps (walking + pushing) for a player to deliver a box
+        self.exact_step_costs = self._precompute_exact_steps()
+
+    def _precompute_exact_steps(self):
+        costs = {}
+        for goal in self.goals:
+            # state: (bx, by, px, py)
+            goal_costs = {}
+            from collections import deque
+            queue = deque()
+            
+            # Initialize targets: box at goal, player anywhere adjacent
+            for dx, dy in ((0,1), (0,-1), (1,0), (-1,0)):
+                px, py = goal[0] + dx, goal[1] + dy
+                if (px, py) in self.floor_cells:
+                    state = (goal[0], goal[1], px, py)
+                    goal_costs[state] = 0
+                    queue.append(state)
+                    
+            while queue:
+                bx, by, px, py = queue.popleft()
+                curr_cost = goal_costs[(bx, by, px, py)]
+                
+                # 1. Reverse a walk: player walked from (nx, ny) to (px, py)
+                for dx, dy in ((0,1), (0,-1), (1,0), (-1,0)):
+                    nx, ny = px + dx, py + dy
+                    if (nx, ny) in self.floor_cells and (nx, ny) != (bx, by):
+                        nstate = (bx, by, nx, ny)
+                        if nstate not in goal_costs:
+                            goal_costs[nstate] = curr_cost + 1
+                            queue.append(nstate)
+                            
+                # 2. Reverse a push: player pushed box from (px, py) to (bx, by)
+                if abs(bx - px) + abs(by - py) == 1:
+                    dx = bx - px
+                    dy = by - py
+                    prev_bx, prev_by = px, py
+                    prev_px, prev_py = px - dx, py - dy
+                    if (prev_px, prev_py) in self.floor_cells:
+                        nstate = (prev_bx, prev_by, prev_px, prev_py)
+                        if nstate not in goal_costs:
+                            goal_costs[nstate] = curr_cost + 1
+                            queue.append(nstate)
+                            
+            costs[goal] = goal_costs
+        return costs
+
+    def exact_steps(self, box: Tuple[int, int], player: Tuple[int, int], goal: Tuple[int, int]) -> int:
+        """Returns the exact min steps (walk + push) to deliver box to goal, or 9999."""
+        return self.exact_step_costs.get(goal, {}).get((box[0], box[1], player[0], player[1]), 9999)
 
     def dist(self, a: Tuple[int, int], b: Tuple[int, int]) -> int:
         """Returns the legal shortest path distance between a and b, or 9999 if unreachable."""

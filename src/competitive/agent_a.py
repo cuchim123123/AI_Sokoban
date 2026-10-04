@@ -15,31 +15,48 @@ from src.competitive.evaluation import competitive_heuristic
 TIME_LIMIT = 0.90
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _get_greedy_opp_act(curr: CompetitiveState, curr_my_pos, curr_op_pos, board: Board, perspective: str, max_steps: int, heuristic_cache: Dict[int, float]) -> Action:
+def _get_greedy_opp_act(
+    curr: CompetitiveState,
+    curr_my_pos,
+    curr_op_pos,
+    board: Board,
+    perspective: str,
+    max_steps: int,
+    heuristic_cache: Dict[int, float]
+) -> Action:
+    """
+    Predict the opponent's next action by simulating joint transitions.
+    We pair each opponent action with a simple greedy own-action (move toward
+    the best-known target) so that conflict rules fire realistically.
+    The opponent wants to MINIMISE our heuristic value.
+    """
     opp_acts = get_valid_actions(curr_op_pos, curr_my_pos, curr.boxes, board)
     if not opp_acts:
         return Action.WAIT
     random.shuffle(opp_acts)
-    
-    # Opponent wants to MINIMIZE our heuristic (since heuristic is zero-sum)
-    best_val_for_opp = float('inf') 
+
+    # Use WAIT for own action in the opponent model — keeps the model honest
+    # without requiring a full nested greedy search (too expensive).
+    # This is simpler but already captures conflict rules correctly.
+    best_val_for_opp = float('inf')
     best_act = opp_acts[0]
-    
+
     for act in opp_acts:
         act_a = Action.WAIT if perspective == 'A' else act
-        act_b = act if perspective == 'A' else Action.WAIT
-        
+        act_b = act        if perspective == 'A' else Action.WAIT
+
         ns = resolve_joint_action_outcome(curr, act_a, act_b, board, max_steps).state
-        if ns._hash in heuristic_cache:
-            val = heuristic_cache[ns._hash]
+        key = ns.board_hash
+        if key in heuristic_cache:
+            val = heuristic_cache[key]
         else:
             val = competitive_heuristic(ns, board, perspective, max_steps)
-            heuristic_cache[ns._hash] = val
-            
+            heuristic_cache[key] = val
+
         if val < best_val_for_opp:
             best_val_for_opp = val
             best_act = act
-            
+
     return best_act
 
 
@@ -85,17 +102,23 @@ def best_action(
         out = resolve_joint_action_outcome(state, act_a, act_b, board, max_steps)
         ns = out.state
         
-        if ns._hash in heuristic_cache:
-            val = heuristic_cache[ns._hash]
+        # ── Cache lookup (keyed on board_hash, which excludes step) ──────────
+        # board_hash gives much higher cache hit rate: the same spatial board
+        # reached at different steps has the same heuristic value.
+        key = ns.board_hash
+        if key in heuristic_cache:
+            val = heuristic_cache[key]
         else:
             val = competitive_heuristic(ns, board, perspective, max_steps)
-            heuristic_cache[ns._hash] = val
-            
+            heuristic_cache[key] = val
+
         new_my_pos = ns.agent_a if perspective == 'A' else ns.agent_b
+        # Penalise revisiting real recent positions (not search-tree positions)
         if new_my_pos in recent_positions and new_my_pos != my_pos:
-            val -= 1000
-            
-        val -= ns.step * 2.0
+            val -= 300
+
+        # Small step cost to prefer shorter paths (much softer than before)
+        val -= (ns.step - state.step) * 0.3
         
         if ns.is_terminal(max_steps) and val > best_terminal_val:
             best_terminal_val = val
@@ -135,13 +158,18 @@ def best_action(
                 continue
             visited.add(ns._hash)
             
-            if ns._hash in heuristic_cache:
-                n_val = heuristic_cache[ns._hash]
-            else:
-                n_val = competitive_heuristic(ns, board, perspective, max_steps)
-                heuristic_cache[ns._hash] = n_val
-                
-            n_val -= ns.step * 2.0
+            # ── Cache lookup (board_hash) ─────────────────────────────────
+            key = ns.board_hash
+            n_val = heuristic_cache.setdefault(
+                key, competitive_heuristic(ns, board, perspective, max_steps)
+            )
+
+            new_my_pos = ns.agent_a if perspective == 'A' else ns.agent_b
+            if new_my_pos in recent_positions and new_my_pos != curr_my_pos:
+                n_val -= 300
+
+            # Small step cost: prefer shorter paths but not at the expense of strategy
+            n_val -= (ns.step - curr.step) * 0.3
             
             if ns.is_terminal(max_steps) and n_val > best_terminal_val:
                 best_terminal_val = n_val
