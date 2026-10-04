@@ -3,7 +3,7 @@ Agent B controller.
 Delegates to the shared `best_action` search function in agent_a.py.
 """
 from collections import deque
-from typing import Deque, Tuple, Dict
+from typing import Deque, Tuple, Dict, Optional
 from src.competitive.state import Action, Board, CompetitiveState
 from src.competitive.agent_a import best_action
 
@@ -43,8 +43,6 @@ class AgentB:
             banned_actions=auto_banned
         )
 
-        dx, dy = action.value
-        expected = (state.agent_b[0] + dx, state.agent_b[1] + dy)
         self._history.append(state.agent_b)
         
         self._last_pos = state.agent_b
