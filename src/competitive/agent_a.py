@@ -159,6 +159,14 @@ def _robust_successor(
     my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
     op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
     opponent_actions = get_valid_actions(op_pos, my_pos, curr.boxes, board)
+    if not opponent_actions:
+        opponent_actions = get_valid_actions(
+            op_pos,
+            my_pos,
+            curr.boxes,
+            board,
+            include_wait=True,
+        )
     candidates = []
     target = _tactical_target(curr, board, perspective, max_steps)
     target_cost_before = _tactical_cost(curr, board, perspective, target)
@@ -247,7 +255,13 @@ def best_action(
     if banned_actions:
         root_acts = [a for a in root_acts if a not in banned_actions]
     if not root_acts:
-        root_acts = [Action.NORTH]
+        root_acts = get_valid_actions(
+            my_pos,
+            op_pos,
+            state.boxes,
+            board,
+            include_wait=True,
+        )
     root_action_best_val = {act: -float('inf') for act in root_acts}
     root_action_revisits = {act: False for act in root_acts}
     root_action_progress = {act: 0 for act in root_acts}

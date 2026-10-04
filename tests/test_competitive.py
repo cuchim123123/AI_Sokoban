@@ -42,7 +42,8 @@ class TestCompetitiveRules(unittest.TestCase):
             11,
         )
         self.assertEqual(out.state.agent_a, (3, 3))
-        self.assertEqual(out.state.agent_b, (4, 3))
+        self.assertNotEqual(out.state.agent_b, (3, 3))
+        self.assertNotEqual(out.state.agent_b, (4, 3))
         self.assertTrue(out.conflict)
 
         out = resolve_joint_action_outcome(
@@ -52,7 +53,8 @@ class TestCompetitiveRules(unittest.TestCase):
             self.board,
             10,
         )
-        self.assertEqual(out.state.agent_a, (2, 3))
+        self.assertNotEqual(out.state.agent_a, (3, 3))
+        self.assertNotEqual(out.state.agent_a, (2, 3))
         self.assertEqual(out.state.agent_b, (3, 3))
         self.assertTrue(out.conflict)
 
@@ -67,21 +69,28 @@ class TestCompetitiveRules(unittest.TestCase):
         self.assertEqual(out.state.boxes, frozenset({(3, 3)}))
         self.assertTrue(out.conflict)
 
-    def test_wait_is_a_default_action(self):
+    def test_wait_is_explicit_dead_end_fallback(self):
         actions = get_valid_actions(
             (2, 2), (4, 2), frozenset(), self.board
         )
-        self.assertIn(Action.WAIT, actions)
+        self.assertNotIn(Action.WAIT, actions)
+        self.assertIn(
+            Action.WAIT,
+            get_valid_actions(
+                (2, 2), (4, 2), frozenset(), self.board, include_wait=True
+            ),
+        )
 
     def test_entering_occupied_cell_is_blocked(self):
         out = resolve_joint_action_outcome(
             self.state((2, 3), (3, 3)),
             Action.EAST,
-            Action.WAIT,
+            Action.NORTH,
             self.board,
             10,
         )
         self.assertEqual(out.state.agent_a, (2, 3))
+        self.assertEqual(out.state.agent_b, (3, 2))
         self.assertTrue(out.conflict)
 
     def test_cache_key_includes_step_and_horizon(self):

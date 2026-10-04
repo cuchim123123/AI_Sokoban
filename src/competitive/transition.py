@@ -3,7 +3,7 @@ resolve_joint_action — single deterministic transition function.
 The search simulation and the GUI BOTH call this function (same rules).
 
 All conflict rules from the design document:
-    7.1  Both agents target the same destination cell       → both fail
+    7.1  Both agents target the same destination cell       → priority winner moves; loser yields
     7.2  Agents try to swap positions                       → both fail
     7.3  Both push the same box in opposite directions      → both fail
     7.4  Both push the same box in perpendicular dirs       → both fail
@@ -30,6 +30,7 @@ def resolve_joint_action_outcome(
     action_b: Action,
     board: Board,
     max_steps: int,
+    _resolve_yield: bool = True,
 ):
     """
     Deterministic joint transition.  Returns next CompetitiveState (step+1).
@@ -88,10 +89,43 @@ def resolve_joint_action_outcome(
         if push_a_box == push_b_box:
             _fail_both()
 
-    # Rule 7.1 — both target the same destination cell.
+    # Rule 7.1 — both target the same destination cell. The priority winner
+    # occupies it; the yielding action is replaced by a deterministic best
+    # legal alternative rather than becoming a silent no-op.
     same_destination_conflict = False
     if valid_a and valid_b and dest_a == dest_b:
         if action_a != Action.WAIT or action_b != Action.WAIT:
+            if _resolve_yield:
+                if (max_steps - state.step) % 2:
+                    yielding_perspective = 'B'
+                    winning_action = action_a
+                else:
+                    yielding_perspective = 'A'
+                    winning_action = action_b
+
+                alternative = _best_yield_action(
+                    state,
+                    winning_action,
+                    yielding_perspective,
+                    board,
+                    max_steps,
+                )
+                if alternative is not None:
+                    if yielding_perspective == 'A':
+                        action_a, action_b = alternative, winning_action
+                    else:
+                        action_a, action_b = winning_action, alternative
+                    resolved = resolve_joint_action_outcome(
+                        state,
+                        action_a,
+                        action_b,
+                        board,
+                        max_steps,
+                        _resolve_yield=False,
+                    )
+                    resolved.conflict = True
+                    return resolved
+
             same_destination_conflict = True
             conflict_occurred = True
             if (max_steps - state.step) % 2:
@@ -184,6 +218,55 @@ def resolve_joint_action(
     return resolve_joint_action_outcome(state, action_a, action_b, board, 1000).state
 
 
+def _best_yield_action(
+    state: CompetitiveState,
+    winning_action: Action,
+    yielding_perspective: str,
+    board: Board,
+    max_steps: int,
+):
+    """Choose the strongest non-WAIT response for a yielding agent."""
+    from src.competitive.evaluation import competitive_heuristic
+
+    yielding_pos = state.agent_a if yielding_perspective == 'A' else state.agent_b
+    winning_pos = state.agent_b if yielding_perspective == 'A' else state.agent_a
+    actions = get_valid_actions(
+        yielding_pos,
+        winning_pos,
+        state.boxes,
+        board,
+        include_wait=False,
+    )
+    ranked = []
+    for action in actions:
+        action_a = action if yielding_perspective == 'A' else winning_action
+        action_b = winning_action if yielding_perspective == 'A' else action
+        next_state = resolve_joint_action_outcome(
+            state,
+            action_a,
+            action_b,
+            board,
+            max_steps,
+            _resolve_yield=False,
+        ).state
+        next_pos = next_state.agent_a if yielding_perspective == 'A' else next_state.agent_b
+        if next_pos == yielding_pos:
+            continue
+        ranked.append((
+            competitive_heuristic(
+                next_state,
+                board,
+                yielding_perspective,
+                max_steps,
+            ),
+            action,
+        ))
+
+    if not ranked:
+        return None
+    return max(ranked, key=lambda item: (item[0], item[1].value))[1]
+
+
 # ── Credit bookkeeping ────────────────────────────────────────────────────────
 
 def _update_credit(
@@ -224,14 +307,13 @@ def get_valid_actions(
     other_pos: Tuple[int, int],
     boxes,
     board: Board,
-    include_wait: bool = True,
+    include_wait: bool = False,
 ) -> List[Action]:
     """
     Return physically valid actions for an agent at `pos`.
 
-    WAIT is included by default because it is a strategic action in a
-    simultaneous game: an agent may need to yield, hold a defensive square,
-    or synchronize a push. Pass include_wait=False to omit it explicitly.
+    WAIT is excluded by default: every normal agent turn must make a move.
+    Pass include_wait=True only for an unavoidable dead-end fallback.
     """
     valid: List[Action] = []
     for action in (Action.NORTH, Action.SOUTH, Action.EAST, Action.WEST):
@@ -247,7 +329,7 @@ def get_valid_actions(
             # Note: We also do not forbid push_dest == other_pos here, for the same reason.
         valid.append(action)
 
-    if include_wait or not valid:
+    if include_wait:
         valid.append(Action.WAIT)
 
     return valid
