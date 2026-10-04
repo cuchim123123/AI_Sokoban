@@ -122,9 +122,9 @@ def _joint_push_chain_score(
     - Feasibility gate: if total_cost > remaining_steps, the agent gets
       scaled-down credit (proportional to how far out of reach it is).
 
-    - Parity tie-breaking: when both agents have equal total cost to the
-      same contested box, one of them wins deterministically based on
-      the parity rule at the step of arrival.
+        - Equal-cost races remain shared heuristic potential. Actual parity is
+            resolved only by the authoritative transition function when actions
+            really conflict.
     """
     free_goals = board.goals - occupied_goals
     unplaced = boxes - occupied_goals
@@ -182,14 +182,10 @@ def _joint_push_chain_score(
             # B clearly wins this race
             scores_b.append(score_b)
         else:
-            # True tie in total cost — use parity at the step of arrival
-            remaining_at_conflict = remaining_steps - best_cost_a
-            a_wins_tie = (remaining_at_conflict % 2 != 0)
-
-            if a_wins_tie:
-                scores_a.append(score_a)
-            else:
-                scores_b.append(score_b)
+            # Equal static costs do not prove that a legal conflict will
+            # occur; leave both agents with partial potential instead.
+            scores_a.append(score_a * 0.5)
+            scores_b.append(score_b * 0.5)
 
     scores_a.sort(reverse=True)
     scores_b.sort(reverse=True)
@@ -210,7 +206,8 @@ def _joint_interact_scores(
 
     - Feasibility gate: steal/guard credit scales to zero if impossible in time.
     - Body-blocking: defender standing ON the box cell is a valid full block.
-    - Parity tie-breaking: equal distances resolved by priority rule.
+        - Equal races are represented as shared uncertainty; transition parity
+            resolves only an actual contested action.
 
     Returns (steal_score, guard_score) from attacker/defender perspectives.
     """
@@ -273,11 +270,7 @@ def _joint_interact_scores(
             guard_total += feasible(best_defend)
 
         else:
-            # Tie — resolve by parity at arrival
-            remaining_at_conflict = remaining_steps - best_attack
-            a_wins_tie = (remaining_at_conflict % 2 != 0)
-
-            # Split the expected value of the box loss
+            # Equal approach costs do not guarantee a legal conflict.
             steal_total += feasible(best_attack) * 0.5 + (W_SCORE * 0.5)
             guard_total += feasible(best_defend) * 0.5
 
