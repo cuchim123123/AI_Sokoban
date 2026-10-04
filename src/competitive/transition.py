@@ -216,14 +216,14 @@ def get_valid_actions(
     other_pos: Tuple[int, int],
     boxes,
     board: Board,
-    include_wait: bool = False,
+    include_wait: bool = True,
 ) -> List[Action]:
     """
     Return physically valid actions for an agent at `pos`.
 
-    WAIT is excluded by default — the GBFS uses this to avoid trivially
-    choosing no-ops.  Pass include_wait=True to add WAIT as a last-resort
-    fallback when truly stuck.
+    WAIT is included by default because it is a strategic action in a
+    simultaneous game: an agent may need to yield, hold a defensive square,
+    or synchronize a push. Pass include_wait=False to omit it explicitly.
     """
     valid: List[Action] = []
     for action in (Action.NORTH, Action.SOUTH, Action.EAST, Action.WEST):
