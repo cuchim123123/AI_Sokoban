@@ -204,7 +204,6 @@ class CompetitiveApp:
     def __init__(self, map_file: str, max_steps: int, ai_a: str = "AI", ai_b: str = "AI"):
         pygame.init()
         pygame.display.set_caption("Sokoban — Competitive Mode")
-        pygame.key.set_repeat(200, 50)
 
         self.map_file = map_file
         self.max_steps = max_steps
