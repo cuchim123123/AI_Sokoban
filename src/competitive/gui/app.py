@@ -363,14 +363,9 @@ class CompetitiveApp:
                 now_ticks = pygame.time.get_ticks()
                 if self.running and not self.finished and self.anim_t >= 1.0:
                     if not self.computing:
-                        # Check if human input is ready
-                        ready_a = (self.agent_a is not None) or (self.pending_human_a is not None)
-                        ready_b = (self.agent_b is not None) or (self.pending_human_b is not None)
-                        
-                        if ready_a and ready_b:
-                            if now_ticks - self._last_step_time >= STEP_DELAY:
-                                self.computing = True
-                                threading.Thread(target=self._compute_step).start()
+                        if now_ticks - self._last_step_time >= STEP_DELAY:
+                            self.computing = True
+                            threading.Thread(target=self._compute_step, daemon=True).start()
                 
                 # Check for thread completion
                 if self.computing and self.pending_out is not None:
@@ -434,7 +429,7 @@ class CompetitiveApp:
                             self._metrics = [m for _, _, m in self.history[1:self.step_index+1]]
 
                     
-                    if self.running and not self.finished and self.anim_t >= 1.0 and not self.computing:
+                    if self.running and not self.finished and self.anim_t >= 1.0:
                         if self.agent_a is None:
                             if event.key == pygame.K_w: self.pending_human_a = Action.NORTH
                             elif event.key == pygame.K_s: self.pending_human_a = Action.SOUTH
@@ -453,17 +448,28 @@ class CompetitiveApp:
         if self.state.is_terminal(self.max_steps):
             self.pending_out = "TERMINAL"
             return
+            
+        expected_step = self.state.step
 
         t0 = time.time()
-        action_a = self.agent_a.choose_action(self.state, self.board, self.max_steps) if self.agent_a else self.pending_human_a
+        action_a = self.agent_a.choose_action(self.state, self.board, self.max_steps) if self.agent_a else None
         dt_a = time.time() - t0
 
         t1 = time.time()
-        action_b = self.agent_b.choose_action(self.state, self.board, self.max_steps) if self.agent_b else self.pending_human_b
+        action_b = self.agent_b.choose_action(self.state, self.board, self.max_steps) if self.agent_b else None
         dt_b = time.time() - t1
+        
+        while (not self.agent_a and self.pending_human_a is None) or \
+              (not self.agent_b and self.pending_human_b is None):
+            if not self.running or not self.computing or self.state.step != expected_step:
+                return
+            time.sleep(0.01)
+
+        action_a = action_a if self.agent_a else self.pending_human_a
+        action_b = action_b if self.agent_b else self.pending_human_b
 
         out = resolve_joint_action_outcome(self.state, action_a, action_b, self.board, self.max_steps)
-        self.pending_out = (self.state.step, action_a, action_b, out, dt_a, dt_b)
+        self.pending_out = (expected_step, action_a, action_b, out, dt_a, dt_b)
 
     def _apply_computed_step(self):
         self.computing = False
