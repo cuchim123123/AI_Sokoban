@@ -64,8 +64,19 @@ def _robust_successor(
             curr, action_a, action_b, board, max_steps
         )
         next_state = outcome.state
+        own_position_before = my_pos
+        own_position_after = (
+            next_state.agent_a if perspective == 'A' else next_state.agent_b
+        )
+        effective_value = _value(
+            next_state, board, perspective, max_steps, heuristic_cache
+        )
+        if own_action != Action.WAIT and own_position_after == own_position_before:
+            # A rejected move or push is not a useful response to an adversarial
+            # opponent. Treat any response that blocks our action as unsafe.
+            effective_value = float('-inf')
         candidates.append((
-            _value(next_state, board, perspective, max_steps, heuristic_cache),
+            effective_value,
             opponent_action,
             next_state,
         ))

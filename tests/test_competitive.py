@@ -1,6 +1,7 @@
 import unittest
+from collections import deque
 
-from src.competitive.agent_a import _cache_key
+from src.competitive.agent_a import _cache_key, _robust_successor, best_action
 from src.competitive.state import Action, Board, CompetitiveState
 from src.competitive.transition import get_valid_actions, resolve_joint_action_outcome
 
@@ -85,6 +86,38 @@ class TestCompetitiveRules(unittest.TestCase):
         self.assertNotEqual(_cache_key(state, "A", 10), _cache_key(other, "A", 10))
         self.assertNotEqual(_cache_key(state, "A", 10), _cache_key(state, "A", 20))
         self.assertNotEqual(_cache_key(state, "A", 10), _cache_key(state, "B", 10))
+
+    def test_blocked_push_is_not_repeated(self):
+        state = CompetitiveState(
+            (3, 5),
+            (5, 5),
+            frozenset({(4, 5), (8, 5)}),
+            frozenset({(4, 5)}),
+            frozenset({(8, 5)}),
+            8,
+        )
+        value, _, _ = _robust_successor(
+            state,
+            Action.WEST,
+            self.board,
+            "B",
+            50,
+            {},
+        )
+        self.assertEqual(value, float("-inf"))
+        self.assertNotEqual(
+            best_action(
+                state,
+                self.board,
+                50,
+                "B",
+                deque(maxlen=4),
+                {},
+                {},
+                time_limit=0.01,
+            ),
+            Action.WEST,
+        )
 
 
 if __name__ == "__main__":

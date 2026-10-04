@@ -11,6 +11,7 @@ from src.competitive.state import CompetitiveState, Board
 
 W_SCORE      = 1000.0   # Reward for each point (box on goal)
 W_CHAIN      = 2.0      # Linear multiplier per step closer. Max = 2.0 * 200 = 400
+W_GUARD      = 1.5      # Reward for maintaining access to credited boxes
 W_OFF_GOAL   = 15.0     # Penalty for pushing boxes far from goals
 W_DEAD       = 5000.0   # Large penalty for deadlocking a box
 W_MOBILITY   = 0.0      # Disabled — fights exact_step gradient
@@ -318,6 +319,23 @@ def competitive_heuristic(
         remaining,
     )
 
+    # Preserve current score by staying closer to the approach cells of own
+    # credited boxes than the opponent is to those same boxes.
+    _, guard_a = _joint_interact_scores(
+        state.agent_b,
+        state.agent_a,
+        state.boxes_on_goals_a,
+        board,
+        remaining,
+    )
+    _, guard_b = _joint_interact_scores(
+        state.agent_a,
+        state.agent_b,
+        state.boxes_on_goals_b,
+        board,
+        remaining,
+    )
+
     mob_a = _mobility(state.agent_a, state.boxes, board)
     mob_b = _mobility(state.agent_b, state.boxes, board)
 
@@ -328,15 +346,18 @@ def competitive_heuristic(
     if perspective == 'A':
         own_score, opp_score = score_a, score_b
         own_chain, opp_chain = chain_a, chain_b
+        own_guard, opp_guard = guard_a, guard_b
         own_mob, opp_mob = mob_a, mob_b
     else:
         own_score, opp_score = score_b, score_a
         own_chain, opp_chain = chain_b, chain_a
+        own_guard, opp_guard = guard_b, guard_a
         own_mob, opp_mob = mob_b, mob_a
 
     return (
         W_SCORE * (own_score - opp_score)
         + W_CHAIN * (own_chain - opp_chain)
+        + W_GUARD * (own_guard - opp_guard)
         + W_MOBILITY * (own_mob - opp_mob)
         - W_DEAD * deadlocks
         - W_OFF_GOAL * off_goal
