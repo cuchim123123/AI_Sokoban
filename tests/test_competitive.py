@@ -26,7 +26,18 @@ class TestCompetitiveRules(unittest.TestCase):
             0,
         )
 
-    def test_same_destination_fails_for_both(self):
+    def test_same_destination_uses_remaining_step_priority(self):
+        out = resolve_joint_action_outcome(
+            self.state((2, 3), (4, 3)),
+            Action.EAST,
+            Action.WEST,
+            self.board,
+            11,
+        )
+        self.assertEqual(out.state.agent_a, (3, 3))
+        self.assertEqual(out.state.agent_b, (4, 3))
+        self.assertTrue(out.conflict)
+
         out = resolve_joint_action_outcome(
             self.state((2, 3), (4, 3)),
             Action.EAST,
@@ -35,7 +46,7 @@ class TestCompetitiveRules(unittest.TestCase):
             10,
         )
         self.assertEqual(out.state.agent_a, (2, 3))
-        self.assertEqual(out.state.agent_b, (4, 3))
+        self.assertEqual(out.state.agent_b, (3, 3))
         self.assertTrue(out.conflict)
 
     def test_competing_pushes_fail_for_both(self):

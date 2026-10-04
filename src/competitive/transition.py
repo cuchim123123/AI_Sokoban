@@ -81,19 +81,27 @@ def resolve_joint_action_outcome(
         valid_b = False
         conflict_occurred = True
 
+    # Rules 7.3 / 7.4 — both push the same box in any directions.
+    # This takes precedence over same-destination handling because both
+    # agents' destinations are the shared box cell.
+    if valid_a and valid_b and push_a_box is not None and push_b_box is not None:
+        if push_a_box == push_b_box:
+            _fail_both()
+
     # Rule 7.1 — both target the same destination cell.
+    same_destination_conflict = False
     if valid_a and valid_b and dest_a == dest_b:
         if action_a != Action.WAIT or action_b != Action.WAIT:
-            _fail_both()
+            same_destination_conflict = True
+            conflict_occurred = True
+            if (max_steps - state.step) % 2:
+                valid_b = False
+            else:
+                valid_a = False
 
     # Rule 7.2 — agents try to swap positions.
     if valid_a and valid_b and dest_a == pos_b and dest_b == pos_a:
         _fail_both()
-
-    # Rules 7.3 / 7.4 — both push the same box in any directions.
-    if valid_a and valid_b and push_a_box is not None and push_b_box is not None:
-        if push_a_box == push_b_box:
-            _fail_both()
 
     # Rule 7.5 — a push into the other agent fails, while the other move may
     # still commit if it is otherwise valid.
@@ -107,10 +115,10 @@ def resolve_joint_action_outcome(
 
     # An agent cannot enter the other agent's current cell, even when the
     # other agent is moving away during this joint step.
-    if valid_a and action_a != Action.WAIT and dest_a == pos_b:
+    if valid_a and not same_destination_conflict and action_a != Action.WAIT and dest_a == pos_b:
         valid_a = False
         conflict_occurred = True
-    if valid_b and action_b != Action.WAIT and dest_b == pos_a:
+    if valid_b and not same_destination_conflict and action_b != Action.WAIT and dest_b == pos_a:
         valid_b = False
         conflict_occurred = True
 
