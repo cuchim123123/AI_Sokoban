@@ -13,6 +13,7 @@ W_SCORE      = 1000.0   # Reward for each point (box on goal)
 W_CHAIN      = 2.0      # Linear multiplier per step closer. Max = 2.0 * 200 = 400
 W_STEAL     = 3.0      # Makes approach progress visible beside chain/guard terms
 W_GUARD      = 1.5      # Reward for maintaining access to credited boxes
+W_MISSION    = 2.0      # Reward for finish-next-box then return-to-defense plans
 W_OFF_GOAL   = 15.0     # Penalty for pushing boxes far from goals
 W_DEAD       = 5000.0   # Large penalty for deadlocking a box
 W_MOBILITY   = 0.0      # Disabled — fights exact_step gradient
@@ -313,6 +314,51 @@ def _mobility(
     return count
 
 
+def _finish_return_score(
+    pos: Tuple[int, int],
+    boxes: FrozenSet[Tuple[int, int]],
+    credited_goals: FrozenSet[Tuple[int, int]],
+    board: Board,
+    remaining_steps: int,
+) -> float:
+    """Estimate executable finish-next-box then return-to-defense missions."""
+    if not credited_goals:
+        return 0.0
+
+    free_goals = board.goals - credited_goals
+    unplaced = boxes - credited_goals
+    best_mission = _UNREACHABLE
+
+    for box in unplaced:
+        for goal in free_goals:
+            delivery = board.exact_steps(box, pos, goal)
+            if delivery >= _UNREACHABLE:
+                continue
+
+            # A completed push leaves the player beside the goal. Use the
+            # cheapest legal adjacent goal cell as the return starting point.
+            goal_neighbors = [
+                (goal[0] + dx, goal[1] + dy)
+                for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0))
+                if (goal[0] + dx, goal[1] + dy) in board.floor_cells
+            ]
+            if not goal_neighbors:
+                continue
+
+            return_to_defense = min(
+                board.dist(neighbor, credited_goal)
+                for neighbor in goal_neighbors
+                for credited_goal in credited_goals
+            )
+            mission = delivery + return_to_defense
+            if mission <= remaining_steps:
+                best_mission = min(best_mission, mission)
+
+    if best_mission >= _UNREACHABLE:
+        return 0.0
+    return float(max(0, 200 - best_mission))
+
+
 def competitive_heuristic(
     state: CompetitiveState,
     board: Board,
@@ -359,6 +405,20 @@ def competitive_heuristic(
 
     mob_a = _mobility(state.agent_a, state.boxes, board)
     mob_b = _mobility(state.agent_b, state.boxes, board)
+    mission_a = _finish_return_score(
+        state.agent_a,
+        state.boxes,
+        state.boxes_on_goals_a,
+        board,
+        remaining,
+    )
+    mission_b = _finish_return_score(
+        state.agent_b,
+        state.boxes,
+        state.boxes_on_goals_b,
+        board,
+        remaining,
+    )
 
     # Shared board penalties (applied symmetrically — reduce total resource pool damage)
     deadlocks = _deadlock_count(state.boxes, board, occupied)
@@ -369,12 +429,14 @@ def competitive_heuristic(
         own_chain, opp_chain = chain_a, chain_b
         own_steal, opp_steal = steal_a, steal_b
         own_guard, opp_guard = guard_a, guard_b
+        own_mission, opp_mission = mission_a, mission_b
         own_mob, opp_mob = mob_a, mob_b
     else:
         own_score, opp_score = score_b, score_a
         own_chain, opp_chain = chain_b, chain_a
         own_steal, opp_steal = steal_b, steal_a
         own_guard, opp_guard = guard_b, guard_a
+        own_mission, opp_mission = mission_b, mission_a
         own_mob, opp_mob = mob_b, mob_a
 
     return (
@@ -382,6 +444,7 @@ def competitive_heuristic(
         + W_CHAIN * (own_chain - opp_chain)
         + W_STEAL * (own_steal - opp_steal)
         + W_GUARD * (own_guard - opp_guard)
+        + W_MISSION * (own_mission - opp_mission)
         + W_MOBILITY * (own_mob - opp_mob)
         - W_DEAD * deadlocks
         - W_OFF_GOAL * off_goal

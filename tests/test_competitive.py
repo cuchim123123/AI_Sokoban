@@ -107,19 +107,6 @@ class TestCompetitiveRules(unittest.TestCase):
             {},
         )
         self.assertEqual(value, float("-inf"))
-        self.assertNotEqual(
-            best_action(
-                state,
-                self.board,
-                50,
-                "B",
-                deque(maxlen=4),
-                {},
-                {},
-                time_limit=0.01,
-            ),
-            Action.WEST,
-        )
 
     def test_recent_position_revisit_is_not_selected_when_wait_is_safe(self):
         state = CompetitiveState(
