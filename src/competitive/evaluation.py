@@ -11,7 +11,7 @@ from src.competitive.state import CompetitiveState, Board
 
 W_SCORE      = 1000.0   # Reward for each point (box on goal)
 W_CHAIN      = 2.0      # Linear multiplier per step closer. Max = 2.0 * 200 = 400
-W_STEAL     = 1.0      # Reward for winning an executable approach race to a scored box
+W_STEAL     = 3.0      # Makes approach progress visible beside chain/guard terms
 W_GUARD      = 1.5      # Reward for maintaining access to credited boxes
 W_OFF_GOAL   = 15.0     # Penalty for pushing boxes far from goals
 W_DEAD       = 5000.0   # Large penalty for deadlocking a box

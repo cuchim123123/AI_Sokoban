@@ -3,6 +3,7 @@ from collections import deque
 
 from src.competitive.agent_a import _cache_key, _robust_successor, best_action
 from src.competitive.evaluation import _joint_interact_scores, competitive_heuristic
+from src.competitive.parser import parse_competitive_map
 from src.competitive.state import Action, Board, CompetitiveState
 from src.competitive.transition import get_valid_actions, resolve_joint_action_outcome
 
@@ -207,6 +208,35 @@ class TestCompetitiveRules(unittest.TestCase):
             {},
         )
         self.assertEqual(value, float("-inf"))
+
+    def test_tied_agent_prefers_approaching_opponent_goal(self):
+        _, board = parse_competitive_map("maps/competitive/capacity_lab.txt")
+        state = CompetitiveState(
+            (5, 4),
+            (13, 4),
+            frozenset({(5, 5), (13, 5), (4, 7)}),
+            frozenset({(5, 5)}),
+            frozenset({(13, 5)}),
+            8,
+        )
+        cache = {}
+        west_value = _robust_successor(
+            state,
+            Action.WEST,
+            board,
+            "B",
+            40,
+            cache,
+        )[0]
+        wait_value = _robust_successor(
+            state,
+            Action.WAIT,
+            board,
+            "B",
+            40,
+            cache,
+        )[0]
+        self.assertGreater(west_value, wait_value)
 
 
 if __name__ == "__main__":
