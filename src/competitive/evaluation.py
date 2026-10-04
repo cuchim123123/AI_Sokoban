@@ -439,10 +439,13 @@ def competitive_heuristic(
         own_mission, opp_mission = mission_b, mission_a
         own_mob, opp_mob = mob_b, mob_a
 
+    score_deficit = max(0, opp_score - own_score)
+    steal_weight = W_STEAL * (1.0 + score_deficit)
+
     return (
         W_SCORE * (own_score - opp_score)
         + W_CHAIN * (own_chain - opp_chain)
-        + W_STEAL * (own_steal - opp_steal)
+        + steal_weight * own_steal - W_STEAL * opp_steal
         + W_GUARD * (own_guard - opp_guard)
         + W_MISSION * (own_mission - opp_mission)
         + W_MOBILITY * (own_mob - opp_mob)
