@@ -12,6 +12,7 @@ from src.competitive.evaluation import competitive_heuristic, W_SCORE
 # ── Search Constants ──────────────────────────────────────────────────────────
 TIME_LIMIT = 0.90
 SEARCH_DEPTH = 6
+MAX_SEARCH_DEPTH = 8
 BEAM_WIDTH = 24
 BLOCKED_ACTION_PENALTY = 250.0
 TACTICAL_PROGRESS_WEIGHT = 20.0
@@ -304,73 +305,127 @@ def best_action(
         frontiers[act].append((val, ns))
         visited.add(ns._hash)
 
-    nodes_expanded = 0
-    for _ in range(1, SEARCH_DEPTH):
+    best_choice = None
+    best_choice_value = -float('inf')
+
+    for depth_limit in range(1, MAX_SEARCH_DEPTH + 1):
         if time.time() >= deadline:
             break
 
-        next_frontiers = {act: [] for act in root_acts}
-        for first_act in root_acts:
-            candidates = []
-            for _, curr in frontiers[first_act]:
-                if curr.is_terminal(max_steps):
-                    continue
+        visited = {state._hash}
+        root_action_best_val = {act: -float('inf') for act in root_acts}
+        root_action_revisits = {act: False for act in root_acts}
+        root_action_progress = {act: 0 for act in root_acts}
+        root_action_initial_val = {act: -float('inf') for act in root_acts}
 
-                nodes_expanded += 1
-                curr_my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
-                curr_op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
-                for next_action in get_valid_actions(
-                    curr_my_pos, curr_op_pos, curr.boxes, board
-                ):
-                    if _pushes_own_finished_box(curr, next_action, perspective):
+        frontiers = {act: [] for act in root_acts}
+        for act in root_acts:
+            val, _, ns = _robust_successor(
+                state, act, board, perspective, max_steps, heuristic_cache
+            )
+            root_action_initial_val[act] = val
+            root_action_best_val[act] = max(root_action_best_val[act], val)
+            best_choice = act if best_choice is None else best_choice
+            frontiers[act].append((val, ns))
+            visited.add(ns._hash)
+
+            new_my_pos = ns.agent_a if perspective == 'A' else ns.agent_b
+            root_action_revisits[act] = (
+                new_my_pos != my_pos and new_my_pos in recent_positions
+            )
+            target = _tactical_target(state, board, perspective, max_steps)
+            before_cost = _tactical_cost(state, board, perspective, target)
+            after_cost = _tactical_cost(ns, board, perspective, target)
+            if before_cost < 9999 and after_cost < 9999:
+                root_action_progress[act] = before_cost - after_cost
+
+        for _ in range(1, depth_limit):
+            if time.time() >= deadline:
+                break
+
+            next_frontiers = {act: [] for act in root_acts}
+            for first_act in root_acts:
+                candidates = []
+                for _, curr in frontiers[first_act]:
+                    if curr.is_terminal(max_steps):
                         continue
-                    n_val, _, ns = _robust_successor(
-                        curr,
-                        next_action,
-                        board,
-                        perspective,
-                        max_steps,
-                        heuristic_cache,
-                    )
-                    if ns._hash in visited:
-                        continue
-                    visited.add(ns._hash)
-                    candidates.append((n_val, ns))
-                    if n_val > root_action_best_val[first_act]:
-                        root_action_best_val[first_act] = n_val
 
-            candidates.sort(key=lambda candidate: candidate[0], reverse=True)
-            next_frontiers[first_act] = candidates[:BEAM_WIDTH]
+                    curr_my_pos = curr.agent_a if perspective == 'A' else curr.agent_b
+                    curr_op_pos = curr.agent_b if perspective == 'A' else curr.agent_a
+                    for next_action in get_valid_actions(
+                        curr_my_pos, curr_op_pos, curr.boxes, board
+                    ):
+                        if _pushes_own_finished_box(curr, next_action, perspective):
+                            continue
+                        n_val, _, ns = _robust_successor(
+                            curr,
+                            next_action,
+                            board,
+                            perspective,
+                            max_steps,
+                            heuristic_cache,
+                        )
+                        if ns._hash in visited:
+                            continue
+                        visited.add(ns._hash)
+                        candidates.append((n_val, ns))
+                        if n_val > root_action_best_val[first_act]:
+                            root_action_best_val[first_act] = n_val
 
-        frontiers = next_frontiers
-        if not any(frontiers.values()):
+                candidates.sort(key=lambda candidate: candidate[0], reverse=True)
+                next_frontiers[first_act] = candidates[:BEAM_WIDTH]
+
+            frontiers = next_frontiers
+            if not any(frontiers.values()):
+                break
+
+        if time.time() >= deadline:
             break
 
-    best_overall_progress = max(root_action_progress.values())
-    if best_overall_progress > 0:
-        # Returning to a recent square is acceptable when it is the first
-        # step of a concrete push or conflict-winning route.
-        eligible_actions = [
-            act for act in root_acts
-            if root_action_progress[act] == best_overall_progress
+        best_overall_progress = max(root_action_progress.values())
+        if best_overall_progress > 0:
+            eligible_actions = [
+                act for act in root_acts
+                if root_action_progress[act] == best_overall_progress
+            ]
+        else:
+            non_revisiting_actions = [
+                act for act in root_acts if not root_action_revisits[act]
+            ]
+            eligible_actions = non_revisiting_actions or root_acts
+
+        if not eligible_actions:
+            eligible_actions = root_acts
+
+        best_progress = max(root_action_progress[act] for act in eligible_actions)
+        progressing_actions = [
+            act for act in eligible_actions
+            if root_action_progress[act] == best_progress
         ]
-    else:
-        non_revisiting_actions = [
-            act for act in root_acts if not root_action_revisits[act]
-        ]
-        eligible_actions = non_revisiting_actions or root_acts
-    best_progress = max(root_action_progress[act] for act in eligible_actions)
-    progressing_actions = [
-        act for act in eligible_actions
-        if root_action_progress[act] == best_progress
-    ]
-    return max(
-        progressing_actions,
-        key=lambda act: (
-            root_action_initial_val[act],
-            root_action_best_val[act],
-        ),
-    )
+        candidate = max(
+            progressing_actions,
+            key=lambda act: (
+                root_action_initial_val[act],
+                root_action_best_val[act],
+            ),
+        )
+        candidate_value = root_action_best_val[candidate]
+        best_choice = candidate
+        best_choice_value = candidate_value
+
+    if best_choice is not None:
+        return best_choice
+
+    # Conservative fallback: the initial immediate root values are already
+    # filtered and protected against self-damaging moves.
+    for act in root_acts:
+        val, _, _ = _robust_successor(
+            state, act, board, perspective, max_steps, heuristic_cache
+        )
+        if val > best_choice_value:
+            best_choice = act
+            best_choice_value = val
+    return best_choice if best_choice is not None else root_acts[0]
 
 
 class AgentA:
