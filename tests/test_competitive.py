@@ -2,7 +2,11 @@ import unittest
 from collections import deque
 
 from src.competitive.agent_a import _cache_key, _robust_successor, best_action
-from src.competitive.evaluation import _joint_interact_scores, competitive_heuristic
+from src.competitive.evaluation import (
+    _finish_return_score,
+    _joint_interact_scores,
+    competitive_heuristic,
+)
 from src.competitive.parser import parse_competitive_map
 from src.competitive.state import Action, Board, CompetitiveState
 from src.competitive.transition import get_valid_actions, resolve_joint_action_outcome
@@ -224,6 +228,17 @@ class TestCompetitiveRules(unittest.TestCase):
             cache,
         )[0]
         self.assertGreater(west_value, wait_value)
+
+    def test_finish_return_mission_has_positive_feasible_value(self):
+        _, board = parse_competitive_map("maps/competitive/capacity_lab.txt")
+        score = _finish_return_score(
+            (6, 5),
+            frozenset({(5, 5), (13, 5), (4, 8)}),
+            frozenset({(5, 5)}),
+            board,
+            24,
+        )
+        self.assertGreater(score, 0.0)
 
 
 if __name__ == "__main__":
