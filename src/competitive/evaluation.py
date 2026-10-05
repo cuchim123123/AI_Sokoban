@@ -18,6 +18,7 @@ W_OFF_GOAL   = 15.0     # Penalty for pushing boxes far from goals
 W_DEAD       = 5000.0   # Large penalty for deadlocking a box
 W_MOBILITY   = 0.0      # Disabled — fights exact_step gradient
 W_PROJECTED  = 700.0    # Value of score that remains realistically reachable
+W_CONTROL    = 500.0    # Strategic control of opponent's credited box for defense
 
 
 _UNREACHABLE = 9999     # Distance constant for unreachable states
@@ -426,6 +427,47 @@ def projected_score(
     return float(score_b - score_a)
 
 
+def _control_score(
+    pos: Tuple[int, int],
+    own_credited: FrozenSet[Tuple[int, int]],
+    opponent_credited: FrozenSet[Tuple[int, int]],
+    board: Board,
+) -> float:
+    """
+    Value of being in a position that controls box access.
+
+    Being ON the box cell blocks all 4 push directions (full deny).
+    Being on an approach cell blocks one push direction (partial deny).
+    Closer positions are more valuable.
+
+    Both own and opponent credited boxes are scored:
+    - Controlling opponent's box = steal potential (positive)
+    - Controlling own box = defensive guard (positive, slightly lower)
+    """
+    total = 0.0
+
+    for box in opponent_credited:
+        d_on_box = board.dist(pos, box)
+        if d_on_box < _UNREACHABLE:
+            total += max(0, 1.0 / (1.0 + d_on_box))
+
+        for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
+            approach = (box[0] - dx, box[1] - dy)
+            push_to = (box[0] + dx, box[1] + dy)
+            if approach in board.walls or push_to in board.walls:
+                continue
+            d_approach = board.dist(pos, approach)
+            if d_approach < _UNREACHABLE:
+                total += max(0, 0.5 / (1.0 + d_approach))
+
+    for box in own_credited:
+        d_on_box = board.dist(pos, box)
+        if d_on_box < _UNREACHABLE:
+            total += max(0, 0.3 / (1.0 + d_on_box))
+
+    return total
+
+
 def competitive_heuristic(
     state: CompetitiveState,
     board: Board,
@@ -470,6 +512,15 @@ def competitive_heuristic(
         remaining,
     )
 
+    # Strategic control: value positions that contest opponent's credited box
+    # and defend own credited box
+    control_a = _control_score(
+        state.agent_a, state.boxes_on_goals_a, state.boxes_on_goals_b, board
+    )
+    control_b = _control_score(
+        state.agent_b, state.boxes_on_goals_b, state.boxes_on_goals_a, board
+    )
+
     mob_a = _mobility(state.agent_a, state.boxes, board)
     mob_b = _mobility(state.agent_b, state.boxes, board)
     mission_a = _finish_return_score(
@@ -498,6 +549,7 @@ def competitive_heuristic(
         own_guard, opp_guard = guard_a, guard_b
         own_mission, opp_mission = mission_a, mission_b
         own_mob, opp_mob = mob_a, mob_b
+        own_control, opp_control = control_a, control_b
     else:
         own_score, opp_score = score_b, score_a
         own_chain, opp_chain = chain_b, chain_a
@@ -505,6 +557,7 @@ def competitive_heuristic(
         own_guard, opp_guard = guard_b, guard_a
         own_mission, opp_mission = mission_b, mission_a
         own_mob, opp_mob = mob_b, mob_a
+        own_control, opp_control = control_b, control_a
 
     score_deficit = max(0, opp_score - own_score)
     steal_weight = W_STEAL * (1.0 + score_deficit)
@@ -516,6 +569,7 @@ def competitive_heuristic(
         + steal_weight * own_steal - W_STEAL * opp_steal
         + W_GUARD * (own_guard - opp_guard)
         + W_MISSION * (own_mission - opp_mission)
+        + W_CONTROL * (own_control - opp_control)
         + W_MOBILITY * (own_mob - opp_mob)
         - W_DEAD * deadlocks
         - W_OFF_GOAL * off_goal

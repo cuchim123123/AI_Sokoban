@@ -14,6 +14,13 @@ from src.competitive.evaluation import (
     W_SCORE,
 )
 
+_OPPOSITE_ACTION = {
+    Action.NORTH: Action.SOUTH,
+    Action.SOUTH: Action.NORTH,
+    Action.EAST: Action.WEST,
+    Action.WEST: Action.EAST,
+}
+
 # ── Search Constants ──────────────────────────────────────────────────────────
 TIME_LIMIT = 0.90
 SEARCH_DEPTH = 6
@@ -50,6 +57,16 @@ def _value(
             state, board, perspective, max_steps
         )
     return heuristic_cache[key]
+
+
+def _post_tactical_cost(
+    act, root_before_cost, root_action_progress
+) -> float:
+    """Derive the post-action tactical cost from progress and before-cost."""
+    prog = root_action_progress.get(act, 0)
+    if prog >= IMMEDIATE_STEAL_PRIORITY or prog >= IMMEDIATE_FINISH_PRIORITY:
+        return 0.0
+    return max(0.0, root_before_cost - prog)
 
 
 def _joint_action(state: CompetitiveState, perspective: str, own_action: Action, opp_action: Action):
@@ -612,6 +629,7 @@ def best_action(
     action_cache: Optional[Dict[tuple, List[Action]]] = None,
     tactical_cache: Optional[Dict[tuple, object]] = None,
     result_cache: Optional[Dict[tuple, tuple]] = None,
+    last_action: Optional[Action] = None,
 ) -> Action:
     deadline = time.time() + time_limit
 
@@ -656,6 +674,13 @@ def best_action(
     ]
     if banned_actions:
         root_acts = [a for a in root_acts if a not in banned_actions]
+    # Anti-oscillation: ban the inverse of last_action to prevent
+    # 2-cycles (moving back to the cell we just left).
+    if last_action is not None and last_action in _OPPOSITE_ACTION:
+        opposite = _OPPOSITE_ACTION[last_action]
+        dest = (my_pos[0] + opposite.value[0], my_pos[1] + opposite.value[1])
+        if dest in board.floor_cells and dest not in state.boxes:
+            root_acts = [a for a in root_acts if a != opposite]
     if not root_acts:
         root_acts = _opponent_actions(my_pos, op_pos, state.boxes, board, action_cache, include_wait=True)
     root_action_best_val = {act: -float('inf') for act in root_acts}
@@ -859,9 +884,14 @@ def best_action(
             act for act in eligible_actions
             if root_action_progress[act] == best_progress
         ]
+        # Rank: more progress first; then lower tactical cost after move
+        # (closer to the target breaks ties and prevents oscillation);
+        # then initial value, then best value from deeper search.
         candidate = max(
             progressing_actions,
             key=lambda act: (
+                root_action_progress[act],
+                -_post_tactical_cost(act, root_before_cost, root_action_progress),
                 root_action_initial_val[act],
                 root_action_best_val[act],
             ),
@@ -922,7 +952,7 @@ class AgentA:
 
         action = best_action(
             state, board, max_steps,
-            perspective='A',
+                        perspective='A',
             recent_positions=self._history,
             tt=self.tt,
             heuristic_cache=self.heuristic_cache,
@@ -930,6 +960,7 @@ class AgentA:
             action_cache=self.action_cache,
             tactical_cache=self.tactical_cache,
             result_cache=self.result_cache,
+            last_action=self._last_action,
         )
         
         self._history.append((state.agent_a, state.board_hash))

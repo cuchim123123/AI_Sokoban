@@ -505,6 +505,11 @@ class CompetitiveApp:
         if step_idx != self.state.step:
             return
         
+        if self.agent_a:
+            self.agent_a._last_action = out.resolved_action_a
+        if self.agent_b:
+            self.agent_b._last_action = out.resolved_action_b
+        
         self.prev_state = self.state
         self.state = out.state
         self.anim_t = 0.0

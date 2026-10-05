@@ -53,6 +53,7 @@ class AgentB:
             action_cache=self.action_cache,
             tactical_cache=self.tactical_cache,
             result_cache=self.result_cache,
+            last_action=self._last_action,
         )
 
         self._history.append((state.agent_b, state.board_hash))

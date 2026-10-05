@@ -25,6 +25,8 @@ def _step(pos: Tuple[int, int], action: Action) -> Tuple[int, int]:
 class _Outcome(NamedTuple):
     state: CompetitiveState
     conflict: bool
+    resolved_action_a: Optional[Action] = None
+    resolved_action_b: Optional[Action] = None
 
 
 # ── Core transition ───────────────────────────────────────────────────────────
@@ -113,7 +115,12 @@ def resolve_joint_action_outcome(
             _resolve_yield=False,
             _allow_occupied_entry=True,
         )
-        return _Outcome(state=resolved.state, conflict=True)
+        return _Outcome(
+            state=resolved.state,
+            conflict=True,
+            resolved_action_a=next_action_a,
+            resolved_action_b=next_action_b,
+        )
 
     # Rules 7.3 / 7.4 — both push the same box in any directions.
     # This takes precedence over same-destination handling because both
@@ -230,7 +237,14 @@ def resolve_joint_action_outcome(
         step=state.step + 1,
     )
     
-    out = _Outcome(state=ns, conflict=conflict_occurred)
+    resolved_a = action_a if valid_a else Action.WAIT
+    resolved_b = action_b if valid_b else Action.WAIT
+    out = _Outcome(
+        state=ns,
+        conflict=conflict_occurred,
+        resolved_action_a=resolved_a,
+        resolved_action_b=resolved_b,
+    )
     return out
 
 def resolve_joint_action(
