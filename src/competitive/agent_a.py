@@ -18,7 +18,8 @@ from src.competitive.evaluation import (
 TIME_LIMIT = 0.90
 SEARCH_DEPTH = 6
 MAX_SEARCH_DEPTH = 3
-BEAM_WIDTH = 32
+MAX_ITERATIVE_DEPTH = 12
+BEAM_WIDTH = 24
 BLOCKED_ACTION_PENALTY = 250.0
 TACTICAL_PROGRESS_WEIGHT = 20.0
 IMMEDIATE_FINISH_PRIORITY = 9000
@@ -705,7 +706,7 @@ def best_action(
         if best_act is not None:
             return best_act
 
-    for depth_limit in range(1, MAX_SEARCH_DEPTH + 1):
+    for depth_limit in range(1, MAX_ITERATIVE_DEPTH + 1):
         if time.time() >= deadline:
             break
 
@@ -770,6 +771,9 @@ def best_action(
 
             next_frontiers = {act: [] for act in root_acts}
             for first_act in root_acts:
+                if time.time() >= deadline:
+                    depth_completed = False
+                    break
                 candidates = []
                 for _, curr in frontiers[first_act]:
                     if curr.is_terminal(max_steps):
@@ -863,22 +867,24 @@ def best_action(
             ),
         )
         candidate_value = root_action_best_val[candidate]
-        best_choice = candidate
-        best_choice_value = candidate_value
+        # Only promote the deeper result if it is at least as good as what we
+        # had; this prevents a misleading deep descendant from overriding a
+        # valid shallower result.
+        if best_choice is None or candidate_value > best_choice_value:
+            best_choice = candidate
+            best_choice_value = candidate_value
 
+    # Fallback: pick the root action with the best immediate robust value
+    # (tactical constraints already enforced, so no self-damaging moves remain).
+    best_immediate = max(
+        root_acts,
+        key=lambda act: root_action_initial_val[act],
+    )
+    if best_choice is None or root_action_initial_val[best_immediate] > best_choice_value:
+        return best_immediate
     if best_choice is not None:
         return best_choice
-
-    # Conservative fallback: the initial immediate root values are already
-    # filtered and protected against self-damaging moves.
-    for act in root_acts:
-        val, _, _ = _robust_successor(
-            state, act, board, perspective, max_steps, heuristic_cache, action_cache=action_cache, tactical_cache=tactical_cache, result_cache=result_cache
-        )
-        if val > best_choice_value:
-            best_choice = act
-            best_choice_value = val
-    return best_choice if best_choice is not None else root_acts[0]
+    return root_acts[0]
 
 
 class AgentA:
