@@ -839,29 +839,14 @@ def best_action(
         if not depth_completed:
             break
 
-        best_overall_progress = max(root_action_progress.values())
-        if best_overall_progress > 0:
-            eligible_actions = [
-                act for act in root_acts
-                if root_action_progress[act] == best_overall_progress
-            ]
-        else:
-            non_revisiting_actions = [
-                act for act in root_acts if not root_action_revisits[act]
-            ]
-            eligible_actions = non_revisiting_actions or root_acts
-
-        if not eligible_actions:
-            eligible_actions = root_acts
-
-        best_progress = max(root_action_progress[act] for act in eligible_actions)
-        progressing_actions = [
-            act for act in eligible_actions
-            if root_action_progress[act] == best_progress
-        ]
+        # Rank root actions by tactical progress first, then by search value.
+        # This prevents giving up on a crucial move with zero progress when
+        # all competing moves also have zero progress — the search value
+        # (best_val) breaks ties instead of discarding options.
         candidate = max(
-            progressing_actions,
+            root_acts,
             key=lambda act: (
+                root_action_progress[act],
                 root_action_initial_val[act],
                 root_action_best_val[act],
             ),
