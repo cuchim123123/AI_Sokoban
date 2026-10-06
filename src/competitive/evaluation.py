@@ -1,39 +1,399 @@
-from typing import FrozenSet, Tuple
-from scipy.optimize import linear_sum_assignment
+"""
+Evaluation for the competitive 2-agent Sokoban.
 
-from src.competitive.state import CompetitiveState, Board
+Perspective / zero-sum guarantee
+--------------------------------
+`_value_a` computes every term as "agent A minus agent B". `evaluate` returns
+that number for perspective "A" and its negation for "B", so
+
+    evaluate(state, board, "B", ...) == -evaluate(state, board, "A", ...)
+
+holds exactly. That makes the maximin search in `agent_a` a correct security
+strategy for a zero-sum game.
+
+Terms (each measures exactly one thing, no double counting)
+-----------------------------------------------------------
+1. projected score  - competitive race assignment: every unclaimed box is
+                      assigned to the agent who can actually deliver it sooner
+                      (per-agent greedy matching over the precomputed exact
+                      walk+push costs). A tied race splits the box. Credited
+                      boxes are worth a full locked point; a won race is worth
+                      a discounted projected point, so cashing a box in on a
+                      goal is always an improvement over merely chasing it -
+                      the agent must not defer deliveries forever. This is
+                      the term that tells the search WHO IS WINNING each box.
+2. race gradient    - per box, how much cheaper the delivery is for A than
+                      for B (clamped), so best-first search has a smooth
+                      climbing signal toward the boxes it is winning and
+                      toward opponent boxes it can overtake.
+3. steal races      - advantage in reaching an opponent-credited box first,
+                      measured as attacker distance vs defender distance to
+                      the push approach cells. Credited boxes only; unclaimed
+                      boxes are covered by the race assignment above.
+
+Caching
+-------
+`evaluate` memoizes on (positions, boxes, credits, remaining steps) in a
+module level cache shared by the search, by the root move ordering and by the
+transition function's conflict-diversion choice. The cache is the reason the
+agent can think deep inside the time budget.
+"""
+
+from typing import Dict, FrozenSet, Optional, Tuple
+
+from src.competitive.state import Action, Board, CompetitiveState
 
 
-# ── Heuristic Weights ─────────────────────────────────────────────────────────
-# These constants define the relative importance of different strategic goals.
-# Tweak these to change the AI's behavior.
+INF = 9999
+
+W_LOCKED = 1000.0      # one CREDITED point (already on a goal)
+W_PROJECTED = 600.0    # one projected point (won the cost race, not cashed in)
+W_STEAL = 1200.0       # winning the approach race to an opponent's box
+W_ADV = 6.0            # weight of the per-box delivery-cost advantage
+ADV_CAP = 25.0         # advantage clamp per box (stays well below 1 point)
+
+PROGRESS_BASE = 200.0  # progress gradient saturates past this many steps
+STEAL_RANGE = 40.0     # approach distance over which a steal stays attractive
+
+_CACHE_LIMIT = 400_000
+_eval_cache: Dict[tuple, float] = {}
+
+_DIRS = ((0, -1), (0, 1), (1, 0), (-1, 0))
+
+# Set membership helpers reused by several functions (frozensets hash fast).
+Pos = Tuple[int, int]
 
 
-W_SCORE      = 1000.0   # Reward for each point (box on goal)
-W_CHAIN      = 2.0      # Linear multiplier per step closer. Max = 2.0 * 200 = 400
-W_STEAL     = 3.0      # Makes approach progress visible beside chain/guard terms
-W_GUARD      = 1.5      # Reward for maintaining access to credited boxes
-W_MISSION    = 2.0      # Reward for finish-next-box then return-to-defense plans
-W_OFF_GOAL   = 15.0     # Penalty for pushing boxes far from goals
-W_DEAD       = 5000.0   # Large penalty for deadlocking a box
-W_MOBILITY   = 0.0      # Disabled — fights exact_step gradient
-W_PROJECTED  = 700.0    # Value of score that remains realistically reachable
-W_CONTROL    = 500.0    # Strategic control of opponent's credited box for defense
+def clear_cache() -> None:
+    """Drop the shared evaluation cache (used by tests)."""
+    _eval_cache.clear()
 
 
-_UNREACHABLE = 9999     # Distance constant for unreachable states
+# ── Term 1 + 2: projected score and push progress ────────────────────────────
+
+def _agent_plan(
+    pos: Pos,
+    free_boxes,
+    free_goals,
+    board: Board,
+    remaining: int,
+) -> Tuple[int, float]:
+    """
+    Greedy box -> goal matching for one agent.
+
+    Returns (finishable, progress):
+      finishable - number of distinct boxes that can be delivered to distinct
+                   free goals within `remaining` steps,
+      progress   - sum of (PROGRESS_BASE - exact cost) over the matched pairs,
+                   the gradient that points at the boxes worth chasing.
+    """
+    if not free_boxes or not free_goals:
+        return 0, 0.0
+
+    px, py = pos
+    pairs = []
+    for box in free_boxes:
+        bx, by = box
+        for goal in free_goals:
+            cost = board.exact_step_costs.get(goal, {}).get((bx, by, px, py), INF)
+            if cost < INF:
+                pairs.append((cost, box, goal))
+    if not pairs:
+        return 0, 0.0
+
+    # Cheapest deliveries first.
+    pairs.sort()
+
+    used_boxes = set()
+    used_goals = set()
+    finishable = 0
+    progress = 0.0
+    for cost, box, goal in pairs:
+        if box in used_boxes or goal in used_goals:
+            continue
+        used_boxes.add(box)
+        used_goals.add(goal)
+        if cost <= remaining:
+            finishable += 1
+        if cost < PROGRESS_BASE:
+            progress += PROGRESS_BASE - cost
+    return finishable, progress
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Term 3: steal races ──────────────────────────────────────────────────────
+
+def _steal_potential(
+    attacker: Pos,
+    defender: Pos,
+    target_boxes,
+    boxes,
+    board: Board,
+    remaining: int,
+) -> float:
+    """
+    Attacker's advantage in reaching `target_boxes` (credited to the defender).
+
+    A cell scores 1.0 when the attacker reaches a push approach cell before
+    the defender and still has time to push; otherwise only a small gradient
+    keeps the pursuit visible.
+    """
+    if not target_boxes:
+        return 0.0
+
+    total = 0.0
+    for box in target_boxes:
+        bx, by = box
+        best_att = INF
+        best_def = INF
+        for dx, dy in _DIRS:
+            approach = (bx - dx, by - dy)
+            push_to = (bx + dx, by + dy)
+            if approach in board.walls or push_to in board.walls:
+                continue
+            if approach in boxes or push_to in boxes:
+                continue
+            da = board.dist(attacker, approach)
+            dd = board.dist(defender, approach)
+            if da < best_att:
+                best_att = da
+            if dd < best_def:
+                best_def = dd
+
+        # Standing on the box body-blocks every push direction.
+        dd_box = board.dist(defender, box)
+        if dd_box < best_def:
+            best_def = dd_box
+
+        if best_att >= INF:
+            continue
+
+        gradient = max(0.0, STEAL_RANGE - best_att) / STEAL_RANGE
+        if best_att < best_def and best_att + 1 <= remaining:
+            total += 1.0 + 0.5 * gradient
+        else:
+            total += 0.3 * gradient
+    return total
 
 
-def _has_legal_push(
-    box: Tuple[int, int],
-    boxes: FrozenSet[Tuple[int, int]],
+# ── Term 1 + 2: competitive race assignment and cost gradient ─────────────────
+
+def _match_costs(
+    pos: Pos,
+    free_boxes,
+    free_goals,
+    board: Board,
+) -> Dict[Pos, int]:
+    """
+    Cheapest-first box->goal matching for one agent.
+
+    Returns {box: exact walk+push cost} for every box the agent can deliver
+    to some distinct free goal; unmatched (unreachable) boxes are absent.
+    """
+    if not free_boxes or not free_goals:
+        return {}
+    px, py = pos
+    pairs = []
+    for box in free_boxes:
+        bx, by = box
+        for goal in free_goals:
+            cost = board.exact_step_costs.get(goal, {}).get((bx, by, px, py), INF)
+            if cost < INF:
+                pairs.append((cost, box, goal))
+    pairs.sort()
+
+    used_boxes = set()
+    used_goals = set()
+    costs: Dict[Pos, int] = {}
+    for cost, box, goal in pairs:
+        if box in used_boxes or goal in used_goals:
+            continue
+        used_boxes.add(box)
+        used_goals.add(goal)
+        costs[box] = cost
+    return costs
+
+
+def _advantage(x: int, y: int, cap: float = ADV_CAP) -> float:
+    """Cost advantage of an agent priced at x against one priced at y."""
+    if x >= INF and y >= INF:
+        return 0.0
+    if y >= INF:        # only I can deliver this box at all
+        return cap
+    if x >= INF:        # only the opponent can
+        return -cap
+    return max(-cap, min(cap, y - x))
+
+
+def _race(
+    state: CompetitiveState,
+    board: Board,
+    remaining: int,
+) -> Tuple[float, float, float]:
+    """
+    Competitive projection over the unclaimed boxes.
+
+    Returns (projected_a, projected_b, adv_a - adv_b):
+      projected_* - boxes each agent is expected to deliver (credited boxes
+                    are counted by the caller), winner of each cost race
+                    takes the box, a dead tie splits it in half,
+      adv         - summed clamped cost advantage, A positive / B negative.
+    """
+    occupied = state.boxes_on_goals_a | state.boxes_on_goals_b
+    free_boxes = state.boxes - occupied
+    if not free_boxes:
+        return 0.0, 0.0, 0.0
+    free_goals = board.goals - occupied
+
+    costs_a = _match_costs(state.agent_a, free_boxes, free_goals, board)
+    costs_b = _match_costs(state.agent_b, free_boxes, free_goals, board)
+
+    projected_a = 0.0
+    projected_b = 0.0
+    adv = 0.0
+    for box in free_boxes:
+        x = costs_a.get(box, INF)
+        y = costs_b.get(box, INF)
+        adv += _advantage(x, y)
+        if x < y:
+            if x <= remaining:
+                projected_a += 1.0
+        elif y < x:
+            if y <= remaining:
+                projected_b += 1.0
+        elif x < INF:  # exact tie between reachable deliveries
+            if x <= remaining:
+                projected_a += 0.5
+                projected_b += 0.5
+    return projected_a, projected_b, adv
+
+
+
+# ── Raw value from agent A's perspective ─────────────────────────────────────
+
+def _value_a(state: CompetitiveState, board: Board, max_steps: int) -> float:
+    remaining = max_steps - state.step
+    if remaining < 0:
+        remaining = 0
+
+    cred_a = state.boxes_on_goals_a
+    cred_b = state.boxes_on_goals_b
+
+    if remaining == 0:
+        # Out of steps: the score is frozen, nothing can move any more.
+        return W_LOCKED * (len(cred_a) - len(cred_b))
+
+    projected_a, projected_b, adv = _race(state, board, remaining)
+    value = W_LOCKED * (len(cred_a) - len(cred_b))
+    value += W_PROJECTED * (projected_a - projected_b)
+    value += W_ADV * adv
+
+    steal_a = _steal_potential(
+        state.agent_a, state.agent_b, cred_b, state.boxes, board, remaining
+    )
+    steal_b = _steal_potential(
+        state.agent_b, state.agent_a, cred_a, state.boxes, board, remaining
+    )
+    value += W_STEAL * (steal_a - steal_b)
+
+    return value
+
+
+# ── Public evaluation API ────────────────────────────────────────────────────
+
+def evaluate(
+    state: CompetitiveState,
+    board: Board,
+    perspective: str,
+    max_steps: int,
+    cache: Optional[Dict[tuple, float]] = None,
+) -> float:
+    """
+    Cached evaluation from `perspective` ("A" or "B"). Higher is better.
+    The cached value is stored once (from A's perspective) and mirrored, so
+    the two perspectives stay exactly zero-sum.
+    """
+    store = _eval_cache if cache is None else cache
+    key = (
+        state.agent_a,
+        state.agent_b,
+        state.boxes,
+        state.boxes_on_goals_a,
+        state.boxes_on_goals_b,
+        max_steps - state.step,
+    )
+    raw = store.get(key)
+    if raw is None:
+        raw = _value_a(state, board, max_steps)
+        if len(store) >= _CACHE_LIMIT:
+            store.clear()
+        store[key] = raw
+    return raw if perspective == "A" else -raw
+
+
+def competitive_heuristic(
+    state: CompetitiveState,
+    board: Board,
+    perspective: str,
+    max_steps: int,
+) -> float:
+    """Legacy name for `evaluate`."""
+    return evaluate(state, board, perspective, max_steps)
+
+
+def projected_score(
+    state: CompetitiveState,
+    board: Board,
+    perspective: str,
+    max_steps: int,
+) -> float:
+    """Projected final score (credited + realistically finishable boxes)."""
+    remaining = max(max_steps - state.step, 0)
+    occupied = state.boxes_on_goals_a | state.boxes_on_goals_b
+    free_boxes = state.boxes - occupied
+    free_goals = board.goals - occupied
+
+    finish_a, _ = _agent_plan(state.agent_a, free_boxes, free_goals, board, remaining)
+    finish_b, _ = _agent_plan(state.agent_b, free_boxes, free_goals, board, remaining)
+    raw = (W_LOCKED * (len(state.boxes_on_goals_a) - len(state.boxes_on_goals_b))
+           + W_PROJECTED * (finish_a - finish_b))
+    return raw if perspective == "A" else -raw
+
+
+def nearest_objective(
+    state: CompetitiveState,
+    board: Board,
+    perspective: str,
+) -> Optional[Pos]:
+    """Cheap cell an agent is currently heading for (used for move ordering)."""
+    occupied = state.boxes_on_goals_a | state.boxes_on_goals_b
+    if perspective == "A":
+        pos = state.agent_a
+        targets = state.boxes - occupied or state.boxes_on_goals_b
+    else:
+        pos = state.agent_b
+        targets = state.boxes - occupied or state.boxes_on_goals_a
+    if not targets:
+        return None
+
+    best = None
+    best_dist = INF
+    for target in targets:
+        d = board.dist(pos, target)
+        if d < best_dist:
+            best_dist = d
+            best = target
+    return best
+
+
+# ── Deadlock helpers (used by the search's action filters) ───────────────────
+
+def has_legal_push(
+    box: Pos,
+    boxes: FrozenSet[Pos],
     board: Board,
 ) -> bool:
-    """Return whether the box has any locally valid push direction."""
-    for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
+    """Whether `box` has any locally valid push direction."""
+    for dx, dy in _DIRS:
         approach = (box[0] - dx, box[1] - dy)
         destination = (box[0] + dx, box[1] + dy)
         if approach in board.walls or approach in boxes:
@@ -44,533 +404,69 @@ def _has_legal_push(
     return False
 
 
-def _deadlock_count(
-    boxes: FrozenSet[Tuple[int, int]],
+def deadlock_count(
+    boxes: FrozenSet[Pos],
     board: Board,
-    occupied_goals: FrozenSet[Tuple[int, int]] = frozenset(),
+    occupied_goals: FrozenSet[Pos] = frozenset(),
 ) -> int:
     """
-    Count the number of boxes that are permanently deadlocked.
-
-    A box is deadlocked if it cannot be pushed to ANY goal on the board.
-
-    This safely ignores boxes that are ALREADY on goals (since push_dist to its own cell is 0).
+    Number of boxes that can never reach a free goal again:
+    frozen in place locally, statically unreachable, or locked into a 2-box
+    wall pair. Boxes already sitting on a goal are never counted.
     """
-    count = 0
-
     available_goals = board.goals - occupied_goals
+    count = 0
 
     for box in boxes:
         if box in occupied_goals:
             continue
 
-        # A box with no locally valid push is frozen regardless of the
-        # optimistic static push-distance table.
-        if not _has_legal_push(box, boxes, board):
+        if not has_legal_push(box, boxes, board):
             count += 1
             continue
 
-        # 1. Static deadlock (precomputed unreachable)
-        if all(
-            board.push_dist(box, g) >= _UNREACHABLE
-            for g in available_goals
+        if available_goals and all(
+            board.push_dist(box, goal) >= INF for goal in available_goals
         ):
             count += 1
             continue
+        if not available_goals:
+            continue
 
-        # 2. Dynamic 2-box deadlock (adjacent boxes on a wall)
         bx, by = box
         if box in board.goals:
             continue
 
-        # Horizontal adjacency against vertical walls
+        # Two adjacent boxes jammed against a continuous wall.
         if (bx + 1, by) in boxes and (bx + 1, by) not in board.goals:
-            # Check if there is a continuous wall above OR below both boxes
-            if ((bx, by + 1) in board.walls and (bx + 1, by + 1) in board.walls) or \
-               ((bx, by - 1) in board.walls and (bx + 1, by - 1) in board.walls):
+            if ((bx, by + 1) in board.walls and (bx + 1, by + 1) in board.walls) or (
+                (bx, by - 1) in board.walls and (bx + 1, by - 1) in board.walls
+            ):
                 count += 1
                 continue
-
-        # Vertical adjacency against horizontal walls
         if (bx, by + 1) in boxes and (bx, by + 1) not in board.goals:
-            # Check if there is a continuous wall left OR right of both boxes
-            if ((bx + 1, by) in board.walls and (bx + 1, by + 1) in board.walls) or \
-               ((bx - 1, by) in board.walls and (bx - 1, by + 1) in board.walls):
+            if ((bx + 1, by) in board.walls and (bx + 1, by + 1) in board.walls) or (
+                (bx - 1, by) in board.walls and (bx - 1, by + 1) in board.walls
+            ):
                 count += 1
                 continue
 
     return count
 
 
-def _joint_push_chain_score(
-    pos_a: Tuple[int, int],
-    pos_b: Tuple[int, int],
-    boxes: FrozenSet[Tuple[int, int]],
-    board: Board,
-    occupied_goals: FrozenSet[Tuple[int, int]],
-    remaining_steps: int,
-) -> Tuple[float, float]:
-    """
-    Evaluates scoring potential for every unplaced box.
-
-    Key improvements over previous version:
-
-    - Uses TOTAL COST = walk_dist(agent, approach) + push_dist(box, goal).
-
-      Each agent independently picks the best goal for them, not just the
-      goal with fewest pushes.
-
-    - Feasibility gate: if total_cost > remaining_steps, the agent gets
-      scaled-down credit (proportional to how far out of reach it is).
-
-        - Equal-cost races remain shared heuristic potential. Actual parity is
-            resolved only by the authoritative transition function when actions
-            really conflict.
-    """
-    free_goals = board.goals - occupied_goals
-    unplaced = boxes - occupied_goals
-
-    if not free_goals or not unplaced:
-        return 0.0, 0.0
-
-    def assignment_costs(pos):
-        box_list = list(unplaced)
-        goal_list = list(free_goals)
-        costs = [
-            [board.exact_steps(box, pos, goal) for goal in goal_list]
-            for box in box_list
-        ]
-        row_ind, col_ind = linear_sum_assignment(costs)
-        return {
-            box_list[row]: costs[row][col]
-            for row, col in zip(row_ind, col_ind)
-            if costs[row][col] < _UNREACHABLE
-        }
-
-    assigned_a = assignment_costs(pos_a)
-    assigned_b = assignment_costs(pos_b)
-    scores_a: list = []
-    scores_b: list = []
-
-    for box in unplaced:
-        best_cost_a = assigned_a.get(box, _UNREACHABLE)
-        best_cost_b = assigned_b.get(box, _UNREACHABLE)
-
-        if best_cost_a >= _UNREACHABLE and best_cost_b >= _UNREACHABLE:
-            continue
-
-        # Feasibility scaling: agent gets less credit if they can't finish in time
-        def feasible_score(cost: int) -> float:
-            if cost >= _UNREACHABLE:
-                return 0.0
-
-            # Linear gradient ensures constant reward per step taken
-            base = float(max(0, 200 - cost))
-
-            if cost <= remaining_steps:
-                return base  # fully achievable
-
-            # Partially feasible: scale down proportionally
-            return base * (remaining_steps / max(cost, 1))
-
-        score_a = feasible_score(best_cost_a)
-        score_b = feasible_score(best_cost_b)
-
-        if best_cost_a < best_cost_b:
-            # A clearly wins this race
-            scores_a.append(score_a)
-        elif best_cost_b < best_cost_a:
-            # B clearly wins this race
-            scores_b.append(score_b)
-        else:
-            # Equal static costs do not prove that a legal conflict will
-            # occur; leave both agents with partial potential instead.
-            scores_a.append(score_a * 0.5)
-            scores_b.append(score_b * 0.5)
-
-    scores_a.sort(reverse=True)
-    scores_b.sort(reverse=True)
-    return sum(scores_a[:2]), sum(scores_b[:2])
-
-
-def _joint_interact_scores(
-    pos_attacker: Tuple[int, int],
-    pos_defender: Tuple[int, int],
-    target_boxes: FrozenSet[Tuple[int, int]],
-    board: Board,
-    remaining_steps: int,
-) -> Tuple[float, float]:
-    """
-    Evaluates steal vs guard race for scored boxes.
-
-    Key improvements:
-
-    - Feasibility gate: steal/guard credit scales to zero if impossible in time.
-    - Body-blocking: defender standing ON the box cell is a valid full block.
-        - Equal races are represented as shared uncertainty; transition parity
-            resolves only an actual contested action.
-
-    Returns (steal_score, guard_score) from attacker/defender perspectives.
-    """
-    if not target_boxes:
-        return 0.0, 0.0
-
-    steal_total = 0.0
-    guard_total = 0.0
-
-    for box in target_boxes:
-        # Attacker needs to reach any valid push-approach cell
-        best_attack = _UNREACHABLE
-
-        # Defender can block by reaching any push-approach cell OR the box cell itself
-        best_defend = _UNREACHABLE
-
-        # Defender body-block: stand on the box's own cell (blocks all 4 push directions)
-        d_on_box = board.dist(pos_defender, box)
-        if d_on_box < best_defend:
-            best_defend = d_on_box
-
-        for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
-            approach = (box[0] - dx, box[1] - dy)
-            push_to  = (box[0] + dx, box[1] + dy)
-
-            if approach in board.walls or push_to in board.walls:
-                continue
-
-            da = board.dist(pos_attacker, approach)
-            dd = board.dist(pos_defender, approach)
-
-            if da < best_attack:
-                best_attack = da
-            if dd < best_defend:
-                best_defend = dd
-
-        def feasible(cost: int) -> float:
-            if cost >= _UNREACHABLE:
-                return 0.0
-
-            base = float(max(0, 200 - cost))
-
-            if cost <= remaining_steps:
-                return base
-
-            return base * (remaining_steps / max(cost, 1))
-
-        if best_attack < best_defend:
-            steal_total += feasible(best_attack)
-
-            # Horizon fix: If attacker wins the race, defender WILL lose the box.
-            # Price the 1000 point score swing immediately to prevent mirage nodes.
-            steal_total += W_SCORE
-
-        elif best_defend < best_attack:
-            # The defender currently wins the race, but the attacker still
-            # needs a gradient toward the box. Otherwise every losing attack
-            # looks identical and the trailing agent never pursues it.
-            steal_total += feasible(best_attack)
-            guard_total += feasible(best_defend)
-
-        else:
-            # Equal approach costs do not guarantee a legal conflict.
-            steal_total += feasible(best_attack) * 0.5 + (W_SCORE * 0.5)
-            guard_total += feasible(best_defend) * 0.5
-
-    return steal_total, guard_total
-
-
-def _off_goal_penalty(
-    boxes: FrozenSet[Tuple[int, int]],
-    board: Board,
-    occupied_goals: FrozenSet[Tuple[int, int]],
-) -> float:
-    """Discourages scattering boxes away from goals into corners."""
-    unplaced = boxes - occupied_goals
-
-    if not unplaced:
-        return 0.0
-
-    total = 0.0
-
-    available_goals = board.goals - occupied_goals
-    if not available_goals:
-        return float(_UNREACHABLE * len(unplaced))
-
-    for box in unplaced:
-        # Use push_dist if possible, fallback to walking dist
-        min_d = min(board.push_dist(box, g) for g in available_goals)
-
-        if min_d >= _UNREACHABLE:
-            min_d = min(board.dist(box, g) for g in available_goals)
-
-        total += min_d
-
-    return total
-
-
-def _mobility(
-    pos: Tuple[int, int],
-    boxes: FrozenSet[Tuple[int, int]],
-    board: Board,
-) -> int:
-    """Count immediately available non-stuck moves from pos."""
-    count = 0
-
-    for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
-        dest = (pos[0] + dx, pos[1] + dy)
-
-        if dest in board.walls:
-            continue
-
-        if dest in boxes:
-            push = (dest[0] + dx, dest[1] + dy)
-
-            if push in board.walls or push in boxes:
-                continue
-
-        count += 1
-
-    return count
-
-
-def _finish_return_score(
-    pos: Tuple[int, int],
-    boxes: FrozenSet[Tuple[int, int]],
-    credited_goals: FrozenSet[Tuple[int, int]],
-    board: Board,
-    remaining_steps: int,
-) -> float:
-    """Estimate executable finish-next-box then return-to-defense missions."""
-    if not credited_goals:
-        return 0.0
-
-    free_goals = board.goals - credited_goals
-    unplaced = boxes - credited_goals
-    best_mission = _UNREACHABLE
-
-    for box in unplaced:
-        for goal in free_goals:
-            delivery = board.exact_steps(box, pos, goal)
-            if delivery >= _UNREACHABLE:
-                continue
-
-            # A completed push leaves the player beside the goal. Use the
-            # cheapest legal adjacent goal cell as the return starting point.
-            goal_neighbors = [
-                (goal[0] + dx, goal[1] + dy)
-                for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0))
-                if (goal[0] + dx, goal[1] + dy) in board.floor_cells
-            ]
-            if not goal_neighbors:
-                continue
-
-            return_to_defense = min(
-                board.dist(neighbor, credited_goal)
-                for neighbor in goal_neighbors
-                for credited_goal in credited_goals
-            )
-            mission = delivery + return_to_defense
-            if mission <= remaining_steps:
-                best_mission = min(best_mission, mission)
-
-    if best_mission >= _UNREACHABLE:
-        return 0.0
-    return float(max(0, 200 - best_mission))
-
-
-def _projected_future_score(
-    pos: Tuple[int, int],
-    boxes: FrozenSet[Tuple[int, int]],
-    occupied_goals: FrozenSet[Tuple[int, int]],
-    board: Board,
-    remaining_steps: int,
-) -> int:
-    """Count uncredited boxes with a feasible one-agent delivery plan."""
-    free_goals = board.goals - occupied_goals
-    unplaced = boxes - occupied_goals
-    if not free_goals or not unplaced:
-        return 0
-
-    costs = [
-        [board.exact_steps(box, pos, goal) for goal in free_goals]
-        for box in unplaced
-    ]
-    row_ind, col_ind = linear_sum_assignment(costs)
-    return sum(
-        costs[row][col] <= remaining_steps
-        for row, col in zip(row_ind, col_ind)
-    )
-
-
-def projected_score(
-    state: CompetitiveState,
-    board: Board,
-    perspective: str,
-    max_steps: int,
-) -> float:
-    """Estimate the final score differential reachable from this state."""
-    remaining = max_steps - state.step
-    occupied = state.boxes_on_goals_a | state.boxes_on_goals_b
-    future_a = _projected_future_score(
-        state.agent_a, state.boxes, occupied, board, remaining
-    )
-    future_b = _projected_future_score(
-        state.agent_b, state.boxes, occupied, board, remaining
-    )
-    total_future = min(len(state.boxes - occupied), len(board.goals - occupied))
-    future_a = min(future_a, total_future)
-    future_b = min(future_b, total_future)
-
-    score_a = state.score_a() + future_a
-    score_b = state.score_b() + future_b
-    if perspective == 'A':
-        return float(score_a - score_b)
-    return float(score_b - score_a)
-
-
-def _control_score(
-    pos: Tuple[int, int],
-    own_credited: FrozenSet[Tuple[int, int]],
-    opponent_credited: FrozenSet[Tuple[int, int]],
-    board: Board,
-) -> float:
-    """
-    Value of being in a position that controls box access.
-
-    Being ON the box cell blocks all 4 push directions (full deny).
-    Being on an approach cell blocks one push direction (partial deny).
-    Closer positions are more valuable.
-
-    Both own and opponent credited boxes are scored:
-    - Controlling opponent's box = steal potential (positive)
-    - Controlling own box = defensive guard (positive, slightly lower)
-    """
-    total = 0.0
-
-    for box in opponent_credited:
-        d_on_box = board.dist(pos, box)
-        if d_on_box < _UNREACHABLE:
-            total += max(0, 1.0 / (1.0 + d_on_box))
-
-        for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
-            approach = (box[0] - dx, box[1] - dy)
-            push_to = (box[0] + dx, box[1] + dy)
-            if approach in board.walls or push_to in board.walls:
-                continue
-            d_approach = board.dist(pos, approach)
-            if d_approach < _UNREACHABLE:
-                total += max(0, 0.5 / (1.0 + d_approach))
-
-    for box in own_credited:
-        d_on_box = board.dist(pos, box)
-        if d_on_box < _UNREACHABLE:
-            total += max(0, 0.3 / (1.0 + d_on_box))
-
-    return total
-
-
-def competitive_heuristic(
-    state: CompetitiveState,
-    board: Board,
-    perspective: str,
-    max_steps: int,
-) -> float:
-    """
-    Returns h(state) from the perspective of the given agent.
-    Higher = better for that agent.
-    """
-    score_a = state.score_a()
-    score_b = state.score_b()
-
-    occupied = state.boxes_on_goals_a | state.boxes_on_goals_b
-    remaining = max_steps - state.step
-
-    # Push-chain: globally matched legal walk-plus-push assignments.
-    chain_a, chain_b = _joint_push_chain_score(
-        state.agent_a,
-        state.agent_b,
-        state.boxes,
-        board,
-        occupied,
-        remaining,
-    )
-
-    # Score the race for opponent boxes as well as defending own credited
-    # boxes. Without this term, stealing is legal in the transition but has
-    # zero value in the search evaluation.
-    steal_a, guard_b = _joint_interact_scores(
-        state.agent_a,
-        state.agent_b,
-        state.boxes_on_goals_b,
-        board,
-        remaining,
-    )
-    steal_b, guard_a = _joint_interact_scores(
-        state.agent_b,
-        state.agent_a,
-        state.boxes_on_goals_a,
-        board,
-        remaining,
-    )
-
-    # Strategic control: value positions that contest opponent's credited box
-    # and defend own credited box
-    control_a = _control_score(
-        state.agent_a, state.boxes_on_goals_a, state.boxes_on_goals_b, board
-    )
-    control_b = _control_score(
-        state.agent_b, state.boxes_on_goals_b, state.boxes_on_goals_a, board
-    )
-
-    mob_a = _mobility(state.agent_a, state.boxes, board)
-    mob_b = _mobility(state.agent_b, state.boxes, board)
-    mission_a = _finish_return_score(
-        state.agent_a,
-        state.boxes,
-        state.boxes_on_goals_a,
-        board,
-        remaining,
-    )
-    mission_b = _finish_return_score(
-        state.agent_b,
-        state.boxes,
-        state.boxes_on_goals_b,
-        board,
-        remaining,
-    )
-
-    # Shared board penalties (applied symmetrically — reduce total resource pool damage)
-    deadlocks = _deadlock_count(state.boxes, board, occupied)
-    off_goal = _off_goal_penalty(state.boxes, board, occupied)
-
-    if perspective == 'A':
-        own_score, opp_score = score_a, score_b
-        own_chain, opp_chain = chain_a, chain_b
-        own_steal, opp_steal = steal_a, steal_b
-        own_guard, opp_guard = guard_a, guard_b
-        own_mission, opp_mission = mission_a, mission_b
-        own_mob, opp_mob = mob_a, mob_b
-        own_control, opp_control = control_a, control_b
-    else:
-        own_score, opp_score = score_b, score_a
-        own_chain, opp_chain = chain_b, chain_a
-        own_steal, opp_steal = steal_b, steal_a
-        own_guard, opp_guard = guard_b, guard_a
-        own_mission, opp_mission = mission_b, mission_a
-        own_mob, opp_mob = mob_b, mob_a
-        own_control, opp_control = control_b, control_a
-
-    score_deficit = max(0, opp_score - own_score)
-    steal_weight = W_STEAL * (1.0 + score_deficit)
-
-    return (
-        W_SCORE * (own_score - opp_score)
-        + W_PROJECTED * projected_score(state, board, perspective, max_steps)
-        + W_CHAIN * (own_chain - opp_chain)
-        + steal_weight * own_steal - W_STEAL * opp_steal
-        + W_GUARD * (own_guard - opp_guard)
-        + W_MISSION * (own_mission - opp_mission)
-        + W_CONTROL * (own_control - opp_control)
-        + W_MOBILITY * (own_mob - opp_mob)
-        - W_DEAD * deadlocks
-        - W_OFF_GOAL * off_goal
-    )
+def creates_deadlock(pos: Pos, action: Action, boxes, board: Board) -> bool:
+    """True when an agent at `pos` performing `action` pushes a box into a
+    position it can never leave."""
+    if action is Action.WAIT:
+        return False
+    dest = (pos[0] + action.value[0], pos[1] + action.value[1])
+    if dest not in boxes:
+        return False
+    new_cell = (dest[0] + action.value[0], dest[1] + action.value[1])
+    if new_cell in board.goals:
+        return False
+
+    new_boxes = (boxes - {dest}) | {new_cell}
+    if not has_legal_push(new_cell, new_boxes, board):
+        return True
+    return all(board.push_dist(new_cell, goal) >= INF for goal in board.goals)

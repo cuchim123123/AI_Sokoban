@@ -1,35 +1,311 @@
 """
-resolve_joint_action — single deterministic transition function.
-The search simulation and the GUI BOTH call this function (same rules).
+Deterministic joint transition for the 2-agent competitive Sokoban.
 
-All conflict rules from the design document:
-    7.1  Both agents target the same destination cell       → priority winner moves; loser yields
-    7.2  Agents try to swap positions                       → both fail
-    7.3  Both push the same box in opposite directions      → both fail
-    7.4  Both push the same box in perpendicular dirs       → both fail
-    7.5  An agent pushes a box into the other agent         → that push fails
-    +    Moving into the other agent's current cell         → blocked
-         (agent cannot pass through / enter occupied cell)
+The GUI and the search both call `resolve_joint_action_outcome`, so the AI can
+never disagree with the rules.
+
+Conflict rules
+--------------
+7.1  both agents target the same destination cell
+7.2  the agents swap cells (A -> B's cell while B -> A's cell)
+7.3  both agents push the same box
+7.4  two pushes would drop a box on the same cell
+7.5  a push would drop a box on the cell the other agent ends up in
+7.6  an agent enters (or pushes into) a cell the other agent does not vacate
+
+Odd/even advantage
+------------------
+    remaining = max_steps - state.step
+    remaining odd  -> agent A wins every conflict
+    remaining even -> agent B wins every conflict
+
+The winner's intent is executed. The loser never stands still: its action is
+replaced by its best legal alternative (highest shared evaluation, tie-broken
+by a fixed direction order), chosen so that it cannot immediately trigger a
+second conflict. Only when an agent is physically boxed in with no legal
+alternative does it stay in place.
+
+Exception to "the winner takes the cell": if the other agent does not move at
+all (WAIT or an illegal action), it keeps the cell it already occupies and the
+agent trying to enter diverts instead - the occupant is not competing for a
+contested target, and the entrant still has to move.
+
+Speed
+-----
+Complete joint transitions are memoized on (positions, boxes, credits,
+remaining steps, both actions). Iterative deepening re-expands the same nodes
+every round and the search visits many transpositions, so the cache is a large
+part of why the agent reaches depth inside its time budget.
 """
-from typing import Tuple, Optional, List, NamedTuple
+
+from typing import Dict, NamedTuple, Optional, Tuple
+
+from src.competitive.evaluation import evaluate
 from src.competitive.state import Action, Board, CompetitiveState
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+class Outcome(NamedTuple):
+    """Result of one joint transition."""
+    state: CompetitiveState
+    conflict: bool
+    resolved_action_a: Optional[Action]
+    resolved_action_b: Optional[Action]
 
-def _step(pos: Tuple[int, int], action: Action) -> Tuple[int, int]:
+
+_Outcome = Outcome  # backwards compatible alias
+
+Pos = Tuple[int, int]
+
+_DIRS = ((0, -1), (0, 1), (1, 0), (-1, 0))
+_YIELD_ORDER = (Action.NORTH, Action.SOUTH, Action.EAST, Action.WEST)
+
+_CACHE_LIMIT = 40_000
+_transition_cache: Dict[tuple, Outcome] = {}
+
+
+class _Intent(NamedTuple):
+    """A committed move: where the agent ends up, and where its box lands."""
+    dest: Pos
+    push_dest: Optional[Pos]
+
+
+# ── Small helpers ────────────────────────────────────────────────────────────
+
+def _step(pos: Pos, action: Action) -> Pos:
     dx, dy = action.value
     return (pos[0] + dx, pos[1] + dy)
 
 
-class _Outcome(NamedTuple):
-    state: CompetitiveState
-    conflict: bool
-    resolved_action_a: Optional[Action] = None
-    resolved_action_b: Optional[Action] = None
+def _other(who: str) -> str:
+    return "B" if who == "A" else "A"
 
 
-# ── Core transition ───────────────────────────────────────────────────────────
+def conflict_winner(max_steps: int, step: int) -> str:
+    """Odd remaining steps -> A, even remaining steps -> B."""
+    return "A" if (max_steps - step) % 2 else "B"
+
+
+def _intent(pos: Pos, action: Optional[Action], boxes, board: Board) -> Optional[_Intent]:
+    """Physical intent of an action at `pos`, or None if it cannot happen."""
+    if action is None or action is Action.WAIT:
+        return None
+    dest = _step(pos, action)
+    if dest in board.walls:
+        return None
+    if dest in boxes:
+        push_dest = _step(dest, action)
+        if push_dest in board.walls or push_dest in boxes:
+            return None
+        return _Intent(dest, push_dest)
+    return _Intent(dest, None)
+
+
+def _enters(intent: _Intent, cell: Pos) -> bool:
+    """True when the intent ends (agent or box) on `cell`."""
+    if intent.dest == cell:
+        return True
+    return intent.push_dest is not None and intent.push_dest == cell
+
+
+def _conflict(one: _Intent, other: _Intent, one_pos: Pos, other_pos: Pos) -> bool:
+    """True when two intents cannot both be executed (rules 7.1 - 7.5)."""
+    if one.dest == other.dest:                                   # 7.1 / 7.3
+        return True
+    if one.dest == other_pos and other.dest == one_pos:           # 7.2 swap
+        return True
+    if one.push_dest is not None and one.push_dest == other.dest: # 7.5
+        return True
+    if other.push_dest is not None and other.push_dest == one.dest:
+        return True
+    if one.push_dest is not None and other.push_dest is not None: # 7.4
+        if one.push_dest == other.push_dest:
+            return True
+    return False
+
+
+# ── Commit ───────────────────────────────────────────────────────────────────
+
+def _commit(
+    state: CompetitiveState,
+    action_a: Optional[Action],
+    action_b: Optional[Action],
+    board: Board,
+    max_steps: int,
+) -> CompetitiveState:
+    """
+    Apply two compatible (already conflict-free) actions. `None` means the
+    agent does not move. Callers guarantee the pair passes `_conflict`.
+    """
+    boxes = state.boxes
+    moves = {"A": state.agent_a, "B": state.agent_b}
+    intents = {}
+    for who, action in (("A", action_a), ("B", action_b)):
+        intents[who] = (
+            _intent(moves[who], action, boxes, board)
+            if action is not None and action is not Action.WAIT
+            else None
+        )
+
+    pushes = []
+    for who in ("A", "B"):
+        intent = intents[who]
+        if intent is None:
+            continue
+        if intent.push_dest is not None:
+            boxes = boxes - {intent.dest} | {intent.push_dest}
+            pushes.append((intent.dest, intent.push_dest, who))
+        moves[who] = intent.dest
+
+    cred_a = set(state.boxes_on_goals_a)
+    cred_b = set(state.boxes_on_goals_b)
+    for src, dst, who in pushes:
+        cred_a.discard(src)
+        cred_b.discard(src)
+        if dst in board.goals:
+            if who == "A":
+                cred_a.add(dst)
+                cred_b.discard(dst)
+            else:
+                cred_b.add(dst)
+                cred_a.discard(dst)
+
+    final_boxes = frozenset(boxes)
+    cred_a = frozenset(p for p in cred_a if p in final_boxes and p in board.goals)
+    cred_b = frozenset(p for p in cred_b if p in final_boxes and p in board.goals)
+
+    return CompetitiveState(
+        agent_a=moves["A"],
+        agent_b=moves["B"],
+        boxes=final_boxes,
+        boxes_on_goals_a=frozenset(cred_a),
+        boxes_on_goals_b=frozenset(cred_b),
+        step=state.step + 1,
+    )
+
+
+# ── Diversion of the conflict loser ──────────────────────────────────────────
+
+def _pick_diversion(
+    state: CompetitiveState,
+    who: str,
+    other_action: Optional[Action],
+    board: Board,
+    max_steps: int,
+) -> Optional[Action]:
+    """
+    Best legal alternative for `who`, given what the other agent ends up doing
+    (`None` = it does not move). Returns None only when no alternative exists.
+    """
+    my_pos = state.agent_a if who == "A" else state.agent_b
+    other_pos = state.agent_b if who == "A" else state.agent_a
+    boxes = state.boxes
+
+    theirs = (
+        _intent(other_pos, other_action, boxes, board)
+        if other_action is not None
+        else None
+    )
+
+    best_action: Optional[Action] = None
+    best_value = None
+    for action in _YIELD_ORDER:
+        mine = _intent(my_pos, action, boxes, board)
+        if mine is None:
+            continue
+        if theirs is None:
+            if _enters(mine, other_pos):
+                continue
+        elif _conflict(mine, theirs, my_pos, other_pos):
+            continue
+
+        action_a = action if who == "A" else other_action
+        action_b = other_action if who == "A" else action
+        candidate = _commit(state, action_a, action_b, board, max_steps)
+        value = evaluate(candidate, board, who, max_steps)
+        if best_value is None or value > best_value:
+            best_value = value
+            best_action = action
+
+    return best_action
+
+
+def _diversion_order(divert, max_steps: int, step: int):
+    """Priority winner settles first, so the loser diverts around it."""
+    winner = conflict_winner(max_steps, step)
+    return [who for who in divert if who == winner] + [
+        who for who in divert if who != winner
+    ]
+
+
+# ── Core transition ──────────────────────────────────────────────────────────
+
+def _resolve(
+    state: CompetitiveState,
+    action_a: Action,
+    action_b: Action,
+    board: Board,
+    max_steps: int,
+) -> Outcome:
+    pos = {"A": state.agent_a, "B": state.agent_b}
+    acts = {"A": action_a, "B": action_b}
+    boxes = state.boxes
+
+    intent = {
+        "A": _intent(pos["A"], action_a, boxes, board),
+        "B": _intent(pos["B"], action_b, boxes, board),
+    }
+    divert = []
+    conflict = False
+
+    # (1) incompatible intents -> parity winner keeps its move
+    if intent["A"] is not None and intent["B"] is not None:
+        if _conflict(intent["A"], intent["B"], pos["A"], pos["B"]):
+            conflict = True
+            loser = _other(conflict_winner(max_steps, state.step))
+            intent[loser] = None
+            divert.append(loser)
+
+    # (2) entering a cell whose occupant does not move -> entrant diverts
+    for who in ("A", "B"):
+        if intent[who] is None:
+            continue
+        other = _other(who)
+        if intent[other] is None and other not in divert:
+            if _enters(intent[who], pos[other]):
+                conflict = True
+                intent[who] = None
+                divert.append(who)
+
+    # final action of each agent; None = it does not move
+    final = {
+        who: (acts[who] if intent[who] is not None else None)
+        for who in ("A", "B")
+    }
+
+    # (3) the conflict loser(s) move somewhere else instead of standing still
+    for who in _diversion_order(divert, max_steps, state.step):
+        final[who] = _pick_diversion(state, who, final[_other(who)], board, max_steps)
+        conflict = True
+
+    # (4) an agent with no alternative stays put, which can invalidate the
+    #     other agent's entry into that cell
+    for who in ("A", "B"):
+        if intent[who] is None:
+            continue
+        other = _other(who)
+        if final[other] is None and _enters(intent[who], pos[other]):
+            conflict = True
+            intent[who] = None
+            final[who] = _pick_diversion(state, who, final[other], board, max_steps)
+
+    next_state = _commit(state, final["A"], final["B"], board, max_steps)
+    return Outcome(
+        state=next_state,
+        conflict=conflict,
+        resolved_action_a=final["A"] if final["A"] is not None else Action.WAIT,
+        resolved_action_b=final["B"] if final["B"] is not None else Action.WAIT,
+    )
+
 
 def resolve_joint_action_outcome(
     state: CompetitiveState,
@@ -37,215 +313,26 @@ def resolve_joint_action_outcome(
     action_b: Action,
     board: Board,
     max_steps: int,
-    _resolve_yield: bool = True,
-    _allow_occupied_entry: bool = False,
-):
-    """
-    Deterministic joint transition.  Returns next CompetitiveState (step+1).
-    All conflict rules produce no-ops for the conflicting agents.
-    """
-    pos_a = state.agent_a
-    pos_b = state.agent_b
-    boxes = state.boxes   # frozenset — we never mutate it directly
-
-    # ── 1. Compute intended destinations ─────────────────────────────────────
-    dest_a = _step(pos_a, action_a) if action_a != Action.WAIT else pos_a
-    dest_b = _step(pos_b, action_b) if action_b != Action.WAIT else pos_b
-
-    # ── 2. Determine push targets ─────────────────────────────────────────────
-    push_a_box  = dest_a if (action_a != Action.WAIT and dest_a in boxes) else None
-    push_a_dest = _step(dest_a, action_a) if push_a_box is not None else None
-    push_b_box  = dest_b if (action_b != Action.WAIT and dest_b in boxes) else None
-    push_b_dest = _step(dest_b, action_b) if push_b_box is not None else None
-
-    # ── 3. Individual physical validity ───────────────────────────────────────
-    def _physically_valid(
-        action, dest, push_box, push_dest_cell, other_pos
-    ) -> bool:
-        if action == Action.WAIT:
-            return True
-        # Destination must be a floor cell
-        if dest in board.walls:
-            return False
-        if push_box is None:
-            pass # Moved to inter-agent rules
-        else:
-            # Push: box destination must be free of walls and other boxes
-            if push_dest_cell in board.walls:
-                return False
-            if push_dest_cell in boxes:
-                return False
-        return True
-
-    valid_a = _physically_valid(action_a, dest_a, push_a_box, push_a_dest, pos_b)
-    valid_b = _physically_valid(action_b, dest_b, push_b_box, push_b_dest, pos_a)
-
-    # ── 4. Inter-agent conflict rules ─────────────────────────────────────────
-
-    conflict_occurred = False
-
-    def _fail_both() -> None:
-        nonlocal valid_a, valid_b, conflict_occurred
-        valid_a = False
-        valid_b = False
-        conflict_occurred = True
-
-    winner = 'A' if (max_steps - state.step) % 2 else 'B'
-
-    def _priority_resolve(winning_perspective: str):
-        if not _resolve_yield:
-            return None
-        winning_action = action_a if winning_perspective == 'A' else action_b
-        yielding_perspective = 'B' if winning_perspective == 'A' else 'A'
-        alternative = _best_yield_action(
-            state, winning_action, yielding_perspective, board, max_steps
-        )
-        if alternative is None:
-            return None
-        if yielding_perspective == 'A':
-            next_action_a, next_action_b = alternative, winning_action
-        else:
-            next_action_a, next_action_b = winning_action, alternative
-        resolved = resolve_joint_action_outcome(
-            state,
-            next_action_a,
-            next_action_b,
-            board,
-            max_steps,
-            _resolve_yield=False,
-            _allow_occupied_entry=True,
-        )
-        return _Outcome(
-            state=resolved.state,
-            conflict=True,
-            resolved_action_a=next_action_a,
-            resolved_action_b=next_action_b,
-        )
-
-    # Rules 7.3 / 7.4 — both push the same box in any directions.
-    # This takes precedence over same-destination handling because both
-    # agents' destinations are the shared box cell.
-    if valid_a and valid_b and push_a_box is not None and push_b_box is not None:
-        if push_a_box == push_b_box:
-            resolved = _priority_resolve(winner)
-            if resolved is not None:
-                return resolved
-            _fail_both()
-
-    # Rule 7.1 — both target the same destination cell. The priority winner
-    # occupies it; the yielding action is replaced by a deterministic best
-    # legal alternative rather than becoming a silent no-op.
-    same_destination_conflict = False
-    if valid_a and valid_b and dest_a == dest_b:
-        if action_a != Action.WAIT or action_b != Action.WAIT:
-            resolved = _priority_resolve(winner)
-            if resolved is not None:
-                return resolved
-
-            same_destination_conflict = True
-            conflict_occurred = True
-            if (max_steps - state.step) % 2:
-                valid_b = False
-            else:
-                valid_a = False
-
-    # Rule 7.2 — agents try to swap positions.
-    if valid_a and valid_b and dest_a == pos_b and dest_b == pos_a:
-        resolved = _priority_resolve(winner)
-        if resolved is not None:
-            return resolved
-        _fail_both()
-
-    # A push destination and the other agent's destination are disputed too.
-    if valid_a and valid_b:
-        if push_a_dest is not None and push_a_dest == dest_b:
-            resolved = _priority_resolve(winner)
-            if resolved is not None:
-                return resolved
-        if push_b_dest is not None and push_b_dest == dest_a:
-            resolved = _priority_resolve(winner)
-            if resolved is not None:
-                return resolved
-
-    # Rule 7.5 — a push into the other agent fails, while the other move may
-    # still commit if it is otherwise valid.
-    if valid_a and valid_b:
-        if push_a_dest is not None and push_a_dest == dest_b:
-            valid_a = False
-            conflict_occurred = True
-        if push_b_dest is not None and push_b_dest == dest_a:
-            valid_b = False
-            conflict_occurred = True
-
-    # Entry into the other agent's cell is allowed when that agent has a
-    # valid move away. Swaps were handled above; a waiting or invalid agent
-    # still occupies its cell and blocks entry.
-    if valid_a and not _allow_occupied_entry and not same_destination_conflict and action_a != Action.WAIT and dest_a == pos_b and (
-        not valid_b or action_b == Action.WAIT or dest_b == pos_b
-    ):
-        valid_a = False
-        conflict_occurred = True
-    if valid_b and not _allow_occupied_entry and not same_destination_conflict and action_b != Action.WAIT and dest_b == pos_a and (
-        not valid_a or action_a == Action.WAIT or dest_a == pos_a
-    ):
-        valid_b = False
-        conflict_occurred = True
-
-    # ── 5. Commit valid moves ─────────────────────────────────────────────────
-    new_boxes: set = set(boxes)
-    new_pos_a = pos_a
-    new_pos_b = pos_b
-    committed_push_a_box  = None
-    committed_push_a_dest = None
-    committed_push_b_box  = None
-    committed_push_b_dest = None
-
-    if valid_a and action_a != Action.WAIT:
-        if push_a_box is not None:
-            new_boxes.discard(push_a_box)
-            new_boxes.add(push_a_dest)
-            committed_push_a_box  = push_a_box
-            committed_push_a_dest = push_a_dest
-        new_pos_a = dest_a
-
-    if valid_b and action_b != Action.WAIT:
-        if push_b_box is not None:
-            new_boxes.discard(push_b_box)
-            new_boxes.add(push_b_dest)
-            committed_push_b_box  = push_b_box
-            committed_push_b_dest = push_b_dest
-        new_pos_b = dest_b
-
-    # ── 6. Update completion credit ───────────────────────────────────────────
-    new_boxes_fs = frozenset(new_boxes)
-    new_bga, new_bgb = _update_credit(
+) -> Outcome:
+    """Deterministic joint transition (memoized). Returns `Outcome`."""
+    key = (
+        state.agent_a,
+        state.agent_b,
+        state.boxes,
         state.boxes_on_goals_a,
         state.boxes_on_goals_b,
-        boxes,
-        new_boxes_fs,
-        board,
-        committed_push_a_box, committed_push_a_dest,
-        committed_push_b_box, committed_push_b_dest,
+        max_steps - state.step,
+        action_a,
+        action_b,
     )
+    outcome = _transition_cache.get(key)
+    if outcome is None:
+        outcome = _resolve(state, action_a, action_b, board, max_steps)
+        if len(_transition_cache) >= _CACHE_LIMIT:
+            _transition_cache.clear()
+        _transition_cache[key] = outcome
+    return outcome
 
-    ns = CompetitiveState(
-        agent_a=new_pos_a,
-        agent_b=new_pos_b,
-        boxes=new_boxes_fs,
-        boxes_on_goals_a=new_bga,
-        boxes_on_goals_b=new_bgb,
-        step=state.step + 1,
-    )
-    
-    resolved_a = action_a if valid_a else Action.WAIT
-    resolved_b = action_b if valid_b else Action.WAIT
-    out = _Outcome(
-        state=ns,
-        conflict=conflict_occurred,
-        resolved_action_a=resolved_a,
-        resolved_action_b=resolved_b,
-    )
-    return out
 
 def resolve_joint_action(
     state: CompetitiveState,
@@ -253,130 +340,42 @@ def resolve_joint_action(
     action_b: Action,
     board: Board,
 ) -> CompetitiveState:
+    """Legacy wrapper: next state only."""
     return resolve_joint_action_outcome(state, action_a, action_b, board, 1000).state
 
 
-def _best_yield_action(
-    state: CompetitiveState,
-    winning_action: Action,
-    yielding_perspective: str,
-    board: Board,
-    max_steps: int,
-):
-    """Choose the strongest non-WAIT response for a yielding agent."""
-    from src.competitive.evaluation import competitive_heuristic
-
-    yielding_pos = state.agent_a if yielding_perspective == 'A' else state.agent_b
-    winning_pos = state.agent_b if yielding_perspective == 'A' else state.agent_a
-    actions = get_valid_actions(
-        yielding_pos,
-        winning_pos,
-        state.boxes,
-        board,
-        include_wait=False,
-    )
-    own_goals = (
-        state.boxes_on_goals_a
-        if yielding_perspective == 'A'
-        else state.boxes_on_goals_b
-    )
-    ranked = []
-    for action in actions:
-        destination = _step(yielding_pos, action)
-        if destination in own_goals:
-            continue
-        action_a = action if yielding_perspective == 'A' else winning_action
-        action_b = winning_action if yielding_perspective == 'A' else action
-        next_state = resolve_joint_action_outcome(
-            state,
-            action_a,
-            action_b,
-            board,
-            max_steps,
-            _resolve_yield=False,
-            _allow_occupied_entry=True,
-        ).state
-        next_pos = next_state.agent_a if yielding_perspective == 'A' else next_state.agent_b
-        if next_pos == yielding_pos:
-            continue
-        ranked.append((
-            competitive_heuristic(
-                next_state,
-                board,
-                yielding_perspective,
-                max_steps,
-            ),
-            action,
-        ))
-
-    if not ranked:
-        return None
-    return max(ranked, key=lambda item: (item[0], item[1].value))[1]
+def clear_cache() -> None:
+    """Drop the joint-transition memo (used by tests)."""
+    _transition_cache.clear()
 
 
-# ── Credit bookkeeping ────────────────────────────────────────────────────────
-
-def _update_credit(
-    old_bga, old_bgb,
-    old_boxes, new_boxes,
-    board,
-    push_a_box, push_a_dest,
-    push_b_box, push_b_dest,
-):
-    bga = set(old_bga)
-    bgb = set(old_bgb)
-
-    # Strip credit for boxes that were pushed OFF their goal
-    for old_pos in filter(None, [push_a_box, push_b_box]):
-        if old_pos in board.goals:
-            bga.discard(old_pos)
-            bgb.discard(old_pos)
-
-    # Grant credit to the pushing agent when a box lands on a goal
-    if push_a_dest is not None and push_a_dest in board.goals:
-        bgb.discard(push_a_dest)
-        bga.add(push_a_dest)
-
-    if push_b_dest is not None and push_b_dest in board.goals:
-        bga.discard(push_b_dest)
-        bgb.add(push_b_dest)
-
-    # Sanity guard: only keep credit for boxes actually on goals right now
-    bga = frozenset(p for p in bga if p in new_boxes and p in board.goals)
-    bgb = frozenset(p for p in bgb if p in new_boxes and p in board.goals)
-    return bga, bgb
-
-
-# ── Valid action generator ────────────────────────────────────────────────────
+# ── Valid action generator ───────────────────────────────────────────────────
 
 def get_valid_actions(
-    pos: Tuple[int, int],
-    other_pos: Tuple[int, int],
+    pos: Pos,
+    other_pos: Pos,
     boxes,
     board: Board,
     include_wait: bool = False,
-) -> List[Action]:
+):
     """
-    Return physically valid actions for an agent at `pos`.
+    Physically valid actions for an agent at `pos`.
 
-    WAIT is excluded by default: every normal agent turn must make a move.
-    Pass include_wait=True only for an unavoidable dead-end fallback.
+    WAIT is excluded by default: every agent must move every turn. Occupancy
+    rules involving `other_pos` are handled by the joint transition, so the
+    opponent's cell is deliberately not excluded here.
     """
-    valid: List[Action] = []
-    for action in (Action.NORTH, Action.SOUTH, Action.EAST, Action.WEST):
+    valid = []
+    for action in _YIELD_ORDER:
         dest = _step(pos, action)
         if dest in board.walls:
             continue
-        # We do NOT exclude dest == other_pos here because the opponent might move out of the tile.
-        # Collision resolution is handled by resolve_joint_action.
         if dest in boxes:
             push_dest = _step(dest, action)
             if push_dest in board.walls or push_dest in boxes:
                 continue
-            # Note: We also do not forbid push_dest == other_pos here, for the same reason.
         valid.append(action)
 
     if include_wait:
         valid.append(Action.WAIT)
-
     return valid
