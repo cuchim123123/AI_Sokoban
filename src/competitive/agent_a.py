@@ -364,7 +364,6 @@ def _state_steal_cost(state, box, board, perspective, max_steps):
         state.boxes | {opponent_pos},
     )
     distances = []
-    priority = 'A' if (max_steps - state.step) % 2 else 'B'
     for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0)):
         approach = (box[0] - dx, box[1] - dy)
         push_to = (box[0] + dx, box[1] + dy)
@@ -372,10 +371,7 @@ def _state_steal_cost(state, box, board, perspective, max_steps):
             continue
         if push_to in board.walls or push_to in state.boxes:
             continue
-        if (
-            priority != perspective
-            and board.dist(opponent_pos, push_to) <= 1
-        ):
+        if board.dist(opponent_pos, push_to) <= 1:
             continue
         distances.append(board.dist(own_pos, approach))
     return min(distances, default=9999)
@@ -472,7 +468,7 @@ def _tactical_target(state, board, perspective, max_steps):
     return None
 
 
-def _tactical_cost(state, board, perspective, target):
+def _tactical_cost(state, board, perspective, target, max_steps=1):
     if target is None:
         return 9999
     kind, box, goal = target
@@ -480,7 +476,7 @@ def _tactical_cost(state, board, perspective, target):
     if box not in state.boxes:
         return 9999
     if kind == 'steal':
-        return _push_approach_distance(pos, box, board)
+        return _state_steal_cost(state, box, board, perspective, max_steps)
     if kind == 'guard':
         return board.dist(pos, goal) if goal is not None else board.dist(pos, box)
     return board.exact_steps(box, pos, goal)
@@ -549,7 +545,7 @@ def _robust_successor(
         target = _tactical_target(curr, board, perspective, max_steps)
         if tactical_cache is not None:
             tactical_cache[target_key] = target
-    target_cost_before = _tactical_cost(curr, board, perspective, target)
+    target_cost_before = _tactical_cost(curr, board, perspective, target, max_steps)
     pushes_own_finished_box = _pushes_own_finished_box(
         curr, own_action, perspective
     )
@@ -569,7 +565,7 @@ def _robust_successor(
             next_state, board, perspective, max_steps, heuristic_cache
         )
         target_cost_after = _tactical_cost(
-            next_state, board, perspective, target
+            next_state, board, perspective, target, max_steps
         )
         if target_cost_before < 9999 and target_cost_after < 9999:
             effective_value += TACTICAL_PROGRESS_WEIGHT * (
@@ -651,24 +647,11 @@ def best_action(
         action for action in root_acts
         if not _pushes_own_finished_box(state, action, perspective)
         and (
-            (
-                _pushes_opponent_finished_box(state, action, perspective)
-                and _steal_preserves_goal_access(
-                    state, action, board, perspective
-                )
+            _is_endgame_finish(
+                state, action, board, perspective, max_steps
             )
-            or (
-                not _pushes_opponent_finished_box(
-                    state, action, perspective
-                )
-                and (
-                    _is_endgame_finish(
-                        state, action, board, perspective, max_steps
-                    )
-                    or not _creates_deadlock(
-                        state, action, board, perspective, max_steps
-                    )
-                )
+            or not _creates_deadlock(
+                state, action, board, perspective, max_steps
             )
         )
     ]
@@ -695,7 +678,7 @@ def best_action(
     independence_cache: Dict[tuple, bool] = {}
 
     root_target = _tactical_target(state, board, perspective, max_steps)
-    root_before_cost = _tactical_cost(state, board, perspective, root_target)
+    root_before_cost = _tactical_cost(state, board, perspective, root_target, max_steps)
 
     independent = _agents_are_independent(
         state, board, perspective, SEARCH_DEPTH
@@ -718,7 +701,7 @@ def best_action(
                 tactical_cache,
                 result_cache,
             )
-            after_cost = _tactical_cost(ns, board, perspective, root_target)
+            after_cost = _tactical_cost(ns, board, perspective, root_target, max_steps)
             tactical_bonus = 0.0
             if root_before_cost < 9999 and after_cost < 9999:
                 tactical_bonus = TACTICAL_PROGRESS_WEIGHT * (
@@ -772,7 +755,7 @@ def best_action(
                     perspective,
                 )
             )
-            after_cost = _tactical_cost(ns, board, perspective, root_target)
+            after_cost = _tactical_cost(ns, board, perspective, root_target, max_steps)
             if root_before_cost < 9999 and after_cost < 9999:
                 root_action_progress[act] = root_before_cost - after_cost
             if (
