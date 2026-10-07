@@ -8,8 +8,10 @@ def print_help():
     print("Usage: python main.py [command] [args]")
     print("")
     print("Commands:")
-    print("  gui [map_file]                    - Run the single-agent Pygame visualizer")
-    print("  competitive [map_file] [n_steps]  - Run the 2-agent competitive mode")
+    print("  gui [map_file]                    - Launch the unified game (main menu)")
+    print("                                      1 Player: puzzle solved by A* or UCS")
+    print("                                      2 Players: competitive mode")
+    print("  competitive [map_file] [n_steps]  - Jump straight into the 2-agent mode")
     print("  benchmark                         - Run the UCS vs A* benchmark on all maps")
     print("  verify [map_file]                 - Run the heuristic verification experiment")
     print("")
@@ -48,8 +50,11 @@ if __name__ == "__main__":
 
     if command == "gui":
         from src.gui.app import App
-        map_file = args[0] if args else "maps/benchmark_2.txt"
-        print(f"Starting GUI with map: {map_file}")
+        map_file = args[0] if args else None
+        if map_file:
+            print(f"Starting unified game (puzzle map preselected: {map_file})")
+        else:
+            print("Starting unified game")
         app = App(map_file)
         app.run()
         

@@ -8,7 +8,6 @@ import time
 import os
 import glob
 import threading
-import json
 
 from src.competitive.state import Board, CompetitiveState, Action
 from src.competitive.parser import parse_competitive_map
@@ -16,193 +15,39 @@ from src.competitive.transition import resolve_joint_action_outcome
 from src.competitive.agent_a import AgentA
 from src.competitive.agent_b import AgentB
 
+from src.gui.common import (
+    TILE, UI_H,
+    C_BG, C_WALL, C_FLOOR, C_GOAL, C_BOX, C_BOX_DONE,
+    C_UI_BG, C_TEXT, C_TEXT_DIM, C_ACCENT,
+    load_placeholder_image, lerp, lerp_pos,
+    make_fonts, draw_glass_panel, draw_glow, create_gradient_surface,
+    load_blurred_image, draw_map_preview,
+    Button, Animator,
+)
+
 # ── Config ──
-TILE = 64
-UI_H = 120
 FPS  = 60
 STEP_DELAY = 400  # ms between steps for AI
 ANIM_DUR = 0.4 # seconds for animation
 
-# ── Colors ──
-C_BG       = (30, 30, 30)
-C_WALL     = (100, 100, 100)
-C_FLOOR    = (40, 40, 40)
-C_GOAL     = (60, 160, 60)
-C_BOX      = (200, 180, 140)
-C_BOX_DONE = (140, 200, 140)
-
+# ── Mode-specific colors ──
 C_AGENT_A  = (255, 100, 100)
 C_AGENT_B  = (100, 150, 255)
 C_A_DONE   = (200,  50,  50)
 C_B_DONE   = ( 50, 100, 200)
-
-C_UI_BG    = (20, 20, 20)
-C_TEXT     = (255, 255, 255)
-C_TEXT_DIM = (180, 180, 180)
 
 C_WIN_A    = (255, 150, 150)
 C_WIN_B    = (150, 200, 255)
 C_WIN_DRAW = (200, 200, 200)
 
 
-def load_placeholder_image(path, size, color, label, tint=None):
-    try:
-        img = pygame.image.load(path).convert_alpha()
-        img = pygame.transform.scale(img, (size, size))
-        if tint:
-            tint_surf = pygame.Surface((size, size), pygame.SRCALPHA)
-            tint_surf.fill((*tint, 255))
-            img.blit(tint_surf, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
-        return img
-    except Exception as e:
-        surf = pygame.Surface((size, size), pygame.SRCALPHA)
-        pygame.draw.rect(surf, color, (0, 0, size, size), border_radius=8)
-        font_name = "Segoe UI" if pygame.font.match_font("segoeui") else "Arial"
-        font = pygame.font.SysFont(font_name, max(10, size // 5), bold=True)
-        txt = font.render(label, True, (255, 255, 255))
-        surf.blit(txt, txt.get_rect(center=(size // 2, size // 2)))
-        return surf
-
-
-def lerp(a, b, t):
-    return a + (b - a) * t
-
-def lerp_pos(p1, p2, t):
-    return (lerp(p1[0], p2[0], t), lerp(p1[1], p2[1], t))
-
-
-class Animator:
-    def __init__(self, base_dir):
-        self.states = ["Running", "Push", "Die", "Uppercut", "Idle"]
-        self.animations = {}
-        self.frame_dims = {}
-        
-        # 1: South, 3: West, 5: North, 7: East
-        self.dir_map = {
-            (0, 1): 1,
-            (-1, 0): 3,
-            (0, -1): 5,
-            (1, 0): 7
-        }
-        
-        for state in self.states:
-            self.animations[state] = {}
-            self.frame_dims[state] = {}
-            base_path = f"{base_dir}/{state}/Businessman_{state}"
-            for vec, idx in self.dir_map.items():
-                img_path = f"{base_path}_dir{idx}.png"
-                json_path = f"{base_path}_dir{idx}.json"
-                if os.path.exists(img_path) and os.path.exists(json_path):
-                    try:
-                        sheet = pygame.image.load(img_path).convert_alpha()
-                        with open(json_path, 'r') as f:
-                            data = json.load(f)
-                        
-                        # 1. Find union bounding box
-                        union_rect = None
-                        for f_data in data['frames']:
-                            r = f_data['frame']
-                            rect = pygame.Rect(r['x'], r['y'], r['w'], r['h'])
-                            sub = sheet.subsurface(rect)
-                            bbox = sub.get_bounding_rect()
-                            if bbox.width > 0 and bbox.height > 0:
-                                if union_rect is None:
-                                    union_rect = bbox.copy()
-                                else:
-                                    union_rect.union_ip(bbox)
-                                    
-                        if union_rect is None:
-                            union_rect = pygame.Rect(0, 0, 256, 256)
-                        else:
-                            union_rect.inflate_ip(4, 4)
-
-                        # 2. Extract and scale cropped frames
-                        frames = []
-                        scale_factor = (TILE * 0.9) / union_rect.h
-                        new_w = int(union_rect.w * scale_factor)
-                        new_h = int(union_rect.h * scale_factor)
-                        self.frame_dims[state][vec] = (new_w, new_h)
-                        
-                        for f_data in data['frames']:
-                            r = f_data['frame']
-                            crop_rect = pygame.Rect(r['x'] + union_rect.x, r['y'] + union_rect.y, union_rect.w, union_rect.h)
-                            frame_surf = sheet.subsurface(crop_rect)
-                            frame_surf = pygame.transform.scale(frame_surf, (new_w, new_h))
-                            frames.append(frame_surf)
-                        self.animations[state][vec] = frames
-                    except Exception as e:
-                        print(f"Failed to load animation {img_path}: {e}")
-                        self.animations[state][vec] = None
-                else:
-                    self.animations[state][vec] = None
-
-    def get_frame(self, state, vec, t, time_ms, start_time_ms=0):
-        state_anims = self.animations.get(state, {})
-        state_dims = self.frame_dims.get(state, {})
-        
-        frames = state_anims.get(vec)
-        if not frames:
-            frames = state_anims.get((0, 1))
-            
-        if not frames:
-            return None, (TILE, TILE)
-            
-        dims = state_dims.get(vec, state_dims.get((0, 1), (TILE, TILE)))
-            
-        if state in ["Running", "Push"] and t < 1.0:
-            frame_idx = int(t * len(frames)) % len(frames)
-            if frame_idx == 0 and t > 0:
-                frame_idx = 1
-            return frames[frame_idx], dims
-        else:
-            # Idle, Die, Uppercut -> use absolute time
-            elapsed = time_ms - start_time_ms
-            frame_idx = (elapsed // 62) % len(frames)
-            
-            # Clamp end-game animations so they don't loop endlessly
-            if state in ["Die", "Uppercut"]:
-                if (elapsed // 62) >= len(frames):
-                    frame_idx = len(frames) - 1
-                    
-            return frames[frame_idx], dims
-
-def draw_glass_panel(surface, rect, alpha=40, border_alpha=120, radius=15):
-    temp = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-    pygame.draw.rect(temp, (255, 255, 255, alpha), temp.get_rect(), border_radius=radius)
-    pygame.draw.rect(temp, (255, 255, 255, border_alpha), temp.get_rect(), width=1, border_radius=radius)
-    surface.blit(temp, rect.topleft)
-
-class Button:
-    def __init__(self, x, y, w, h, text, action):
-        self.rect = pygame.Rect(x, y, w, h)
-        self.text = text
-        self.action = action
-        font_name = "Segoe UI" if pygame.font.match_font("segoeui") else "Arial"
-        self.font = pygame.font.SysFont(font_name, 20, bold=True)
-        self.hovered = False
-
-    def draw(self, screen):
-        alpha = 60 if self.hovered else 25
-        draw_glass_panel(screen, self.rect, alpha=alpha, border_alpha=150, radius=10)
-        
-        # Shadow for text
-        txt_shadow = self.font.render(self.text, True, (0, 0, 0))
-        txt_surf = self.font.render(self.text, True, (255, 255, 255))
-        
-        c = self.rect.center
-        screen.blit(txt_shadow, txt_shadow.get_rect(center=(c[0]+1, c[1]+1)))
-        screen.blit(txt_surf, txt_surf.get_rect(center=c))
-
-    def handle_event(self, event):
-        if event.type == pygame.MOUSEMOTION:
-            self.hovered = self.rect.collidepoint(event.pos)
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self.hovered and self.action:
-                self.action()
-
 class CompetitiveApp:
-    def __init__(self, map_file: str, max_steps: int, ai_a: str = "AI", ai_b: str = "AI"):
+    def __init__(self, map_file: str, max_steps: int, ai_a: str = "AI",
+                 ai_b: str = "AI", launcher: bool = False):
         pygame.init()
+
+        self.launcher = launcher
+        self._exit_requested = False
         pygame.display.set_caption("Sokoban — Competitive Mode")
 
         self.map_file = map_file
@@ -217,21 +62,19 @@ class CompetitiveApp:
         
         # Load and blur background
         try:
-            raw_bg = pygame.image.load("src/assets/soko/Preview.png").convert()
-            small = pygame.transform.scale(raw_bg, (raw_bg.get_width()//16, raw_bg.get_height()//16))
-            self.menu_bg_img = pygame.transform.smoothscale(small, (self.screen_w, self.screen_h))
-        except:
+            self.menu_bg_img = load_blurred_image("src/assets/soko/Preview.png",
+                                                  self.screen_w, self.screen_h)
+        except Exception:
             self.menu_bg_img = None
 
-        
         # Create gradient background surface
         self._create_gradient_bg()
 
-        font_name = "Segoe UI" if pygame.font.match_font("segoeui") else "Arial"
-        self.font_title = pygame.font.SysFont(font_name, 48, bold=True)
-        self.font_lg = pygame.font.SysFont(font_name, 28, bold=True)
-        self.font_md = pygame.font.SysFont(font_name, 22)
-        self.font_sm = pygame.font.SysFont(font_name, 16)
+        self.fonts = make_fonts()
+        self.font_title = self.fonts["title"]
+        self.font_lg = self.fonts["lg"]
+        self.font_md = self.fonts["md"]
+        self.font_sm = self.fonts["sm"]
         # Assets
         base_soko = "src/assets/soko/PNG/Retina"
         self.img_wall = load_placeholder_image(f"{base_soko}/Blocks/block_03.png", TILE, C_WALL, "WALL")
@@ -277,15 +120,7 @@ class CompetitiveApp:
         self.pending_out = None
 
     def _create_gradient_bg(self):
-        self.bg_surface = pygame.Surface((1024, 768))
-        c1 = pygame.Color(10, 15, 30)
-        c2 = pygame.Color(50, 20, 80)
-        for y in range(768):
-            t = y / 768.0
-            r = int(lerp(c1.r, c2.r, t))
-            g = int(lerp(c1.g, c2.g, t))
-            b = int(lerp(c1.b, c2.b, t))
-            pygame.draw.line(self.bg_surface, (r, g, b), (0, y), (1024, y))
+        self.bg_surface = create_gradient_surface(1024, 768, (10, 15, 30), (50, 20, 80))
 
     def _setup_menu_buttons(self):
         self.menu_buttons = []
@@ -305,10 +140,27 @@ class CompetitiveApp:
         self.btn_steps_dn = Button(700, 450, 110, 45, "Steps -5", self._dec_steps)
         self.btn_steps_up = Button(830, 450, 110, 45, "Steps +5", self._inc_steps)
         
-        # Start game button spanning width
-        self.btn_start = Button(430, 600, 510, 70, "START GAME", self._start_game)
+        # Start game button spanning width (primary action)
+        self.btn_start = Button(430, 600, 510, 70, "START GAME", self._start_game,
+                                selected=True, accent=(120, 220, 120))
+        # Back to the main menu (or quit when running standalone)
+        self.btn_back = Button(70, 640, 260, 48, "< BACK", self._back)
 
-        self.menu_buttons.extend([self.btn_ai_a, self.btn_ai_b, self.btn_steps_up, self.btn_steps_dn, self.btn_start])
+        self.menu_buttons.extend([self.btn_ai_a, self.btn_ai_b, self.btn_steps_up,
+                                  self.btn_steps_dn, self.btn_start, self.btn_back])
+
+    def _back(self):
+        """Leave the competitive menu: back to the launcher, or quit."""
+        if self.launcher:
+            self._exit_requested = True
+        else:
+            pygame.quit()
+            sys.exit()
+
+    def _to_menu(self):
+        self.in_menu = True
+        self.running = False
+        self.screen = pygame.display.set_mode((1024, 768))
 
     def _select_map(self, m):
         self.map_file = m
@@ -364,7 +216,8 @@ class CompetitiveApp:
 
     def run(self):
         last_time = time.time()
-        while True:
+        self._exit_requested = False
+        while not self._exit_requested:
             now_time = time.time()
             dt = min(now_time - last_time, 0.1) 
             last_time = now_time
@@ -397,24 +250,32 @@ class CompetitiveApp:
                 sys.exit()
             
             if self.in_menu:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self._back()
+                        return
+                    if event.key == pygame.K_RETURN:
+                        self._start_game()
+                        return
                 for b in self.menu_buttons:
                     b.handle_event(event)
             else:
                 if event.type == pygame.KEYDOWN:
-                    if event.key in (pygame.K_ESCAPE, pygame.K_q):
+                    if event.key == pygame.K_q:
                         pygame.quit()
                         sys.exit()
+                    if event.key == pygame.K_ESCAPE:
+                        self._to_menu()
+                        continue
                     
                     if event.key == pygame.K_SPACE:
                         if self.finished and self.step_index == len(self.history) - 1:
-                            self.in_menu = True
-                            self.screen = pygame.display.set_mode((1024, 768))
+                            self._to_menu()
                         else:
                             self.running = not self.running
                             self._last_step_time = pygame.time.get_ticks()
                     elif event.key == pygame.K_m:
-                        self.in_menu = True
-                        self.screen = pygame.display.set_mode((1024, 768))
+                        self._to_menu()
                     elif event.key == pygame.K_r:
                         self._start_game()
                     elif event.key == pygame.K_COMMA:
@@ -619,6 +480,10 @@ class CompetitiveApp:
             self.screen.blit(self.menu_bg_img, (0, 0))
         else:
             self.screen.blit(self.bg_surface, (0, 0))
+        # Darken the background so the UI reads clearly
+        overlay = pygame.Surface((1024, 768), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 100))
+        self.screen.blit(overlay, (0, 0))
 
         # Title
         title_shadow = self.font_title.render("SOKOBAN COMPETITIVE", True, (0, 0, 0))
@@ -640,24 +505,24 @@ class CompetitiveApp:
         lbl = self.font_lg.render("Game Settings", True, (255, 255, 255))
         self.screen.blit(lbl, (430, 130))
 
-        # Map Preview Area (glass look inside panel)
+        # Map Preview Area (live render of the selected map)
         preview_rect = pygame.Rect(430, 180, 510, 240)
-        draw_glass_panel(self.screen, preview_rect, alpha=40, border_alpha=80, radius=15)
-        
-        prev_txt = self.font_lg.render("MAP PREVIEW", True, (220, 220, 255))
-        self.screen.blit(prev_txt, prev_txt.get_rect(center=(preview_rect.centerx, preview_rect.centery - 15)))
-        map_name_txt = self.font_md.render(os.path.basename(self.map_file), True, (255, 255, 255))
-        self.screen.blit(map_name_txt, map_name_txt.get_rect(center=(preview_rect.centerx, preview_rect.centery + 20)))
+        draw_map_preview(self.screen, preview_rect, self.map_file, "competitive",
+                         self.fonts)
         
         # Max Steps display
         steps_txt = self.font_lg.render(f"Max Steps: {self.max_steps}", True, (255, 255, 255))
         self.screen.blit(steps_txt, (430, 458))
 
+        hint = self.font_sm.render("ENTER = start  |  ESC = back", True, C_TEXT_DIM)
+        self.screen.blit(hint, (430, 574))
+
         # Highlight for selected map button
         for b in self.menu_buttons:
-            if b.text == os.path.basename(self.map_file):
-                # Glowing border behind active button
-                pygame.draw.rect(self.screen, (255, 255, 255, 80), b.rect.inflate(8, 8), border_radius=12)
+            if b.text.endswith(".txt"):
+                b.selected = (b.text == os.path.basename(self.map_file))
+                if b.selected:
+                    draw_glow(self.screen, b.rect, color=(255, 255, 255), alpha=60)
             b.draw(self.screen)
 
     def _get_box_visual_positions(self, t):
