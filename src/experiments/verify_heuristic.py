@@ -5,6 +5,7 @@ from src.single.heuristics.matching import MatchingHeuristic
 from src.single.search.ucs import UniformCostSearch
 from src.single.heuristics.deadlock import is_deadlock
 from collections import deque
+import os
 import sys
 
 def verify_properties(map_file):
@@ -57,6 +58,7 @@ def verify_properties(map_file):
     print(f"Consistency violations: {violations_consistency}")
     print(f"Max true_cost - h(s) margin: {max_admissibility_diff}")
     
+    os.makedirs("results", exist_ok=True)
     with open("results/verification_results.txt", "w") as f:
         f.write(f"Map: {map_file}\n")
         f.write(f"States tested: {len(states_to_test)}\n")

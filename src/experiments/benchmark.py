@@ -1,5 +1,6 @@
 import time
 import csv
+import os
 from src.single.core.parser import parse_map
 from src.single.search.ucs import UniformCostSearch
 from src.single.search.astar import AStarSearch
@@ -48,6 +49,7 @@ def run_benchmarks(map_files, output_csv="results/benchmark_results.csv"):
             "Time (s)": round(time_astar, 4)
         })
         
+    os.makedirs(os.path.dirname(output_csv) or ".", exist_ok=True)
     with open(output_csv, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=["Map", "Algorithm", "Cost", "Length", "Generated", "Expanded", "Time (s)"])
         writer.writeheader()

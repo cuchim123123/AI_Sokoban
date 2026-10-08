@@ -429,7 +429,7 @@ class TestEvaluation(unittest.TestCase):
 
     def test_evaluate_is_label_symmetric(self):
         rng = random.Random(11)
-        _, board = parse_competitive_map("maps/competitive/dense_goals.txt")
+        _, board = parse_competitive_map("maps/competitive/main.txt")
         for _ in range(60):
             state = self.random_state(rng, board)
             self.assertAlmostEqual(
@@ -552,7 +552,7 @@ class TestAgentBehavior(unittest.TestCase):
         self.assertEqual(AgentB.perspective, "B")
 
     def test_legacy_positional_signature(self):
-        # tools/debug2.py calls best_action positionally through time_limit.
+        # Preserve the public positional signature through time_limit.
         action = best_action(
             self.arena, self.arena_board, 50, "A",
             deque(maxlen=6), {}, {}, 0.1,
@@ -588,7 +588,7 @@ class TestAgentBehavior(unittest.TestCase):
         for path in (
             "maps/competitive/arena_open.txt",
             "maps/competitive/capacity_lab.txt",
-            "maps/competitive/dense_goals.txt",
+            "maps/competitive/main.txt",
             "maps/competitive/corridors.txt",
             "maps/competitive/test_race.txt",
         ):

@@ -13,6 +13,8 @@ from src.shared.common import (
     C_TEXT_DIM,
     lerp_pos,
     draw_glass_panel,
+    draw_result_panel,
+    draw_menu_panel, C_MENU_BG, C_MENU_INK,
     draw_glow,
     draw_map_preview,
 )
@@ -57,30 +59,20 @@ class RenderMixin:
         pygame.display.flip()
 
     def _draw_menu(self):
-        if self.menu_bg_img:
-            self.screen.blit(self.menu_bg_img, (0, 0))
-        else:
-            self.screen.blit(self.bg_surface, (0, 0))
-        # Darken the background so the UI reads clearly
-        overlay = pygame.Surface((1024, 768), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 100))
-        self.screen.blit(overlay, (0, 0))
+        self.screen.fill(C_MENU_BG)
 
-        # Title
-        title_shadow = self.font_title.render("SOKOBAN PUZZLE", True, (0, 0, 0))
-        title = self.font_title.render("SOKOBAN PUZZLE", True, (255, 255, 255))
-        self.screen.blit(title_shadow, title_shadow.get_rect(center=(513, 61)))
+        title = self.font_title.render("SOKOBAN PUZZLE", True, C_MENU_INK)
         self.screen.blit(title, title.get_rect(center=(512, 60)))
 
         # Left panel — map list
         panel_left = pygame.Rect(50, 110, 300, 600)
-        draw_glass_panel(self.screen, panel_left, alpha=20, radius=20)
+        draw_menu_panel(self.screen, panel_left)
         lbl = self.font_lg.render("Select Map", True, C_TEXT)
         self.screen.blit(lbl, (70, 130))
 
         # Right panel — settings
         panel_right = pygame.Rect(400, 110, 570, 600)
-        draw_glass_panel(self.screen, panel_right, alpha=20, radius=20)
+        draw_menu_panel(self.screen, panel_right)
         lbl = self.font_lg.render("Game Settings", True, C_TEXT)
         self.screen.blit(lbl, (430, 130))
 
@@ -270,32 +262,19 @@ class RenderMixin:
         self.screen.blit(sub, sub.get_rect(center=(cx, cy + 25)))
 
     def _draw_result_overlay(self):
-        draw_glass_panel(self.screen, pygame.Rect(0, 0, self.screen_w, self.screen_h),
-                         alpha=150, border_alpha=0, radius=0)
-
         solved = bool(self.history) and self.state.boxes == self.board.goals
 
         if solved:
             moves = len(self.history) - 1
             msg, col = "PUZZLE SOLVED!", (150, 255, 150)
-            detail = f"{moves} moves"
+            details = [f"Completed in {moves} moves"]
             if self.result_metrics:
                 cost, gen, exp, dt = self.result_metrics
-                detail += f"  |  Cost {cost}  |  Gen {gen}  |  Exp {exp}  |  {dt:.3f}s"
+                details.append(f"Cost {cost}  |  Generated {gen}  |  Expanded {exp}")
+                details.append(f"Search time: {dt:.3f}s")
         else:
             msg, col = "NO SOLUTION FOUND", (255, 150, 150)
-            detail = "The puzzle is unsolvable from this position"
+            details = ["The puzzle is unsolvable from this position"]
 
-        cx, cy = self.screen_w // 2, self.screen_h // 2
-        panel = pygame.Rect(0, 0, 560, 190)
-        panel.center = (cx, cy)
-        draw_glass_panel(self.screen, panel, alpha=40, border_alpha=150, radius=20)
-
-        txt = self.font_lg.render(msg, True, col)
-        sub = self.font_md.render(detail, True, C_TEXT)
-        hint = self.font_md.render("Press SPACE to return to the menu", True,
-                                   (200, 255, 200))
-        self.screen.blit(txt, txt.get_rect(center=(cx, cy - 40)))
-        self.screen.blit(sub, sub.get_rect(center=(cx, cy + 10)))
-        self.screen.blit(hint, hint.get_rect(center=(cx, cy + 60)))
+        draw_result_panel(self.screen, self.fonts, msg, details, col)
 

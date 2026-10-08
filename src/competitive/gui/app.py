@@ -21,7 +21,6 @@ from src.shared.common import (
     C_BOX,
     load_placeholder_image,
     make_fonts,
-    load_blurred_image,
     Animator,
 )
 
@@ -63,16 +62,6 @@ class CompetitiveApp(SetupMixin, GameMixin, EventsMixin, RenderMixin):
         self.screen = pygame.display.set_mode((self.screen_w, self.screen_h))
         self.clock = pygame.time.Clock()
         
-        # Load and blur background
-        try:
-            self.menu_bg_img = load_blurred_image("src/assets/soko/Preview.png",
-                                                  self.screen_w, self.screen_h)
-        except Exception:
-            self.menu_bg_img = None
-
-        # Create gradient background surface
-        self._create_gradient_bg()
-
         self.fonts = make_fonts()
         self.font_title = self.fonts["title"]
         self.font_lg = self.fonts["lg"]

@@ -13,13 +13,14 @@ import sys
 
 import pygame
 
-from src.shared.common import (
-    make_fonts, draw_glass_panel, draw_glow, create_gradient_surface,
-    load_blurred_image,
-)
+from src.shared.common import make_fonts, draw_glow, C_MENU_BG
 
 MENU_W = 1024
 MENU_H = 768
+
+C_PANEL_DARK = (14, 18, 32)        # card container (idle)
+C_PANEL_LIT = (26, 32, 52)         # card container (hovered)
+C_INK = (8, 12, 24)                # dark text on cyan
 
 C_CARD_ACCENT_SINGLE = (120, 200, 255)
 C_CARD_ACCENT_COMP   = (255, 160, 120)
@@ -39,18 +40,19 @@ class ModeCard:
 
     def draw(self, screen, fonts):
         hovered = self.hovered
-        alpha = 55 if hovered else 28
-        border_alpha = 220 if hovered else 110
+        fill = C_PANEL_LIT if hovered else C_PANEL_DARK
 
         if hovered:
-            draw_glow(screen, self.rect, color=self.accent, alpha=70, grow=6,
+            draw_glow(screen, self.rect, color=self.accent, alpha=110, grow=6,
                       radius=18)
-        draw_glass_panel(screen, self.rect, alpha=alpha,
-                         border_alpha=border_alpha, radius=18)
+        # Solid, high-contrast container + strong border
+        pygame.draw.rect(screen, fill, self.rect, border_radius=18)
+        pygame.draw.rect(screen, self.accent if hovered else (0, 0, 0),
+                         self.rect, 4 if hovered else 3, border_radius=18)
         # Accent bar across the top of the card
-        bar = pygame.Rect(self.rect.x, self.rect.y, self.rect.width, 5)
-        pygame.draw.rect(screen, self.accent, bar,
-                         border_top_left_radius=18, border_top_right_radius=18)
+        bar = pygame.Rect(self.rect.x + 4, self.rect.y + 4,
+                          self.rect.width - 8, 5)
+        pygame.draw.rect(screen, self.accent, bar)
 
         cx = self.rect.centerx
 
@@ -62,12 +64,12 @@ class ModeCard:
 
         y = self.rect.y + 150
         for line in self.lines:
-            txt = fonts["md"].render(line, True, (210, 210, 210))
+            txt = fonts["md"].render(line, True, (224, 224, 224))
             screen.blit(txt, txt.get_rect(center=(cx, y)))
             y += 32
 
         hint = fonts["sm"].render("CLICK TO PLAY", True,
-                                  (255, 255, 255) if hovered else (170, 170, 170))
+                                  (255, 255, 255) if hovered else (185, 185, 185))
         screen.blit(hint, hint.get_rect(center=(cx, self.rect.bottom - 34)))
 
     def handle_event(self, event):
@@ -87,10 +89,6 @@ class App:
         self.screen = pygame.display.set_mode((MENU_W, MENU_H))
         self.clock = pygame.time.Clock()
         self.fonts = make_fonts()
-
-        self.menu_bg = load_blurred_image("src/assets/soko/Preview.png", MENU_W, MENU_H)
-        self.bg_surface = create_gradient_surface(MENU_W, MENU_H,
-                                                  (10, 15, 30), (45, 18, 70))
 
         self.preselect_map = map_file
         self.single = None
@@ -168,35 +166,29 @@ class App:
         return self._choice
 
     def _draw_menu(self):
-        if self.menu_bg:
-            self.screen.blit(self.menu_bg, (0, 0))
-        else:
-            self.screen.blit(self.bg_surface, (0, 0))
-        # Darken the background so the UI reads clearly
-        overlay = pygame.Surface((MENU_W, MENU_H), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 110))
-        self.screen.blit(overlay, (0, 0))
+        # Full solid cyan background (no image, no overlay)
+        self.screen.fill(C_MENU_BG)
 
-        # Title
+        # Title — black on cyan with a white drop-shadow for punch
         fonts = self.fonts
-        title = fonts["huge"].render("SOKOBAN", True, (255, 255, 255))
-        shadow = fonts["huge"].render("SOKOBAN", True, (0, 0, 0))
+        title = fonts["huge"].render("SOKOBAN", True, (0, 0, 0))
+        shadow = fonts["huge"].render("SOKOBAN", True, (255, 255, 255))
         self.screen.blit(shadow, shadow.get_rect(center=(MENU_W // 2 + 2, 107)))
         self.screen.blit(title, title.get_rect(center=(MENU_W // 2, 105)))
 
         subtitle = fonts["md"].render("AI SEARCH GAME  —  SELECT GAME MODE",
-                                      True, (190, 200, 220))
+                                      True, C_INK)
         self.screen.blit(subtitle, subtitle.get_rect(center=(MENU_W // 2, 165)))
 
-        # Divider
-        pygame.draw.line(self.screen, (120, 130, 160),
-                         (MENU_W // 2 - 220, 200), (MENU_W // 2 + 220, 200), 2)
+        # Divider — hard black rule for contrast
+        pygame.draw.line(self.screen, (0, 0, 0),
+                         (MENU_W // 2 - 220, 200), (MENU_W // 2 + 220, 200), 3)
 
         for card in self.cards:
             card.draw(self.screen, fonts)
 
         footer = fonts["sm"].render(
-            "Click a mode  •  1 / 2 keys  •  ESC to quit", True, (160, 165, 180))
+            "Click a mode  •  1 / 2 keys  •  ESC to quit", True, C_INK)
         self.screen.blit(footer, footer.get_rect(center=(MENU_W // 2, MENU_H - 45)))
 
         pygame.display.flip()

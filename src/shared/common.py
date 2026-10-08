@@ -25,6 +25,10 @@ C_UI_BG    = (20, 20, 20)
 C_TEXT     = (255, 255, 255)
 C_TEXT_DIM = (180, 180, 180)
 
+C_MENU_BG = (0, 255, 255)
+C_MENU_INK = (8, 24, 34)
+C_MENU_PANEL = (14, 30, 43)
+
 C_ACCENT   = (120, 200, 120)   # used for "selected"/primary controls
 
 
@@ -82,26 +86,38 @@ def draw_glow(surface, rect, color=(255, 255, 255), alpha=80, grow=8, radius=12)
     surface.blit(temp, (rect.x - grow, rect.y - grow))
 
 
-def create_gradient_surface(w, h, c1, c2):
-    surf = pygame.Surface((w, h))
-    for y in range(h):
-        t = y / max(1, h - 1)
-        c = (int(lerp(c1[0], c2[0], t)),
-             int(lerp(c1[1], c2[1], t)),
-             int(lerp(c1[2], c2[2], t)))
-        pygame.draw.line(surf, c, (0, y), (w, y))
-    return surf
+def draw_menu_panel(surface, rect, radius=20):
+    """Opaque menu surface with readable contrast against solid cyan."""
+    pygame.draw.rect(surface, C_MENU_PANEL, rect, border_radius=radius)
+    pygame.draw.rect(surface, (5, 18, 28), rect, width=2, border_radius=radius)
 
 
-def load_blurred_image(path, w, h):
-    """Heavily downscale + upscale an image so it works as a soft background."""
-    try:
-        raw = pygame.image.load(path).convert()
-        small = pygame.transform.scale(raw, (max(1, raw.get_width() // 16),
-                                             max(1, raw.get_height() // 16)))
-        return pygame.transform.smoothscale(small, (w, h))
-    except Exception:
-        return None
+def draw_result_panel(surface, fonts, title, details, accent):
+    """Readable translucent end-game card that preserves animation visibility."""
+    backdrop = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+    backdrop.fill((0, 8, 14, 60))
+    surface.blit(backdrop, (0, 0))
+
+    heading = fonts["title"].render(title, True, accent)
+    lines = [fonts["md"].render(line, True, (245, 250, 255)) for line in details]
+    hint = fonts["sm"].render("Press SPACE to return to the menu", True, (230, 240, 250))
+    width = max(560, heading.get_width() + 80, hint.get_width() + 80,
+                *(line.get_width() + 80 for line in lines))
+    height = 190 + len(lines) * 34
+    panel = pygame.Rect(0, 0, width, height)
+    panel.center = surface.get_rect().center
+    card = pygame.Surface(panel.size, pygame.SRCALPHA)
+    pygame.draw.rect(card, (13, 28, 40, 190), card.get_rect(), border_radius=18)
+    surface.blit(card, panel.topleft)
+    pygame.draw.rect(surface, accent, panel, width=2, border_radius=18)
+
+    surface.blit(heading, heading.get_rect(center=(panel.centerx, panel.top + 52)))
+    for index, line in enumerate(lines):
+        surface.blit(line, line.get_rect(center=(panel.centerx, panel.top + 112 + index * 34)))
+    divider_y = panel.bottom - 62
+    pygame.draw.line(surface, (77, 102, 120),
+                     (panel.left + 32, divider_y), (panel.right - 32, divider_y))
+    surface.blit(hint, hint.get_rect(center=(panel.centerx, panel.bottom - 32)))
 
 
 class Button:
@@ -117,20 +133,16 @@ class Button:
 
     def draw(self, screen):
         if self.selected:
-            draw_glass_panel(screen, self.rect, alpha=70, border_alpha=200, radius=10)
-            if self.accent:
-                pygame.draw.rect(screen, self.accent, self.rect, width=2, border_radius=10)
+            fill = self.accent or (132, 244, 224)
+            ink, border = C_MENU_INK, (235, 255, 252)
         else:
-            alpha = 60 if self.hovered else 25
-            draw_glass_panel(screen, self.rect, alpha=alpha, border_alpha=150, radius=10)
-
-        color = self.accent if (self.accent and self.selected) else (255, 255, 255)
-        txt_shadow = self.font.render(self.text, True, (0, 0, 0))
-        txt_surf = self.font.render(self.text, True, color)
-
-        c = self.rect.center
-        screen.blit(txt_shadow, txt_shadow.get_rect(center=(c[0] + 1, c[1] + 1)))
-        screen.blit(txt_surf, txt_surf.get_rect(center=c))
+            fill = (51, 81, 100) if self.hovered else (37, 57, 73)
+            ink = (255, 255, 255)
+            border = (210, 250, 255) if self.hovered else (113, 161, 177)
+        pygame.draw.rect(screen, fill, self.rect, border_radius=10)
+        pygame.draw.rect(screen, border, self.rect, width=2, border_radius=10)
+        text = self.font.render(self.text, True, ink)
+        screen.blit(text, text.get_rect(center=self.rect.center))
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEMOTION:

@@ -22,8 +22,6 @@ from src.shared.common import (
     C_BOX_DONE,
     load_placeholder_image,
     make_fonts,
-    create_gradient_surface,
-    load_blurred_image,
     Animator,
 )
 
@@ -69,8 +67,6 @@ class SinglePlayerApp(SetupMixin, GameMixin, EventsMixin, RenderMixin):
         self.animator = Animator("src/assets")
         self._last_vec = (0, 1)
 
-        self.menu_bg_img = load_blurred_image("src/assets/soko/Preview.png", 1024, 768)
-        self.bg_surface = create_gradient_surface(1024, 768, (10, 15, 30), (50, 20, 80))
 
         self._exit_requested = False
         self._solve_token = 0

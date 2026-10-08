@@ -14,6 +14,8 @@ from src.shared.common import (
     C_TEXT_DIM,
     lerp_pos,
     draw_glass_panel,
+    draw_result_panel,
+    draw_menu_panel, C_MENU_BG, C_MENU_INK,
     draw_glow,
     draw_map_preview,
 )
@@ -84,31 +86,21 @@ class RenderMixin:
         pygame.display.flip()
         
     def _draw_menu(self):
-        if hasattr(self, 'menu_bg_img') and self.menu_bg_img:
-            self.screen.blit(self.menu_bg_img, (0, 0))
-        else:
-            self.screen.blit(self.bg_surface, (0, 0))
-        # Darken the background so the UI reads clearly
-        overlay = pygame.Surface((1024, 768), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 100))
-        self.screen.blit(overlay, (0, 0))
+        self.screen.fill(C_MENU_BG)
 
-        # Title
-        title_shadow = self.font_title.render("SOKOBAN COMPETITIVE", True, (0, 0, 0))
-        title = self.font_title.render("SOKOBAN COMPETITIVE", True, (255, 255, 255))
-        self.screen.blit(title_shadow, title_shadow.get_rect(center=(513, 61)))
+        title = self.font_title.render("SOKOBAN COMPETITIVE", True, C_MENU_INK)
         self.screen.blit(title, title.get_rect(center=(512, 60)))
 
         # Left Panel (Map List)
         panel_left = pygame.Rect(50, 110, 300, 600)
-        draw_glass_panel(self.screen, panel_left, alpha=20, radius=20)
+        draw_menu_panel(self.screen, panel_left)
         
         lbl = self.font_lg.render("Select Map", True, (255, 255, 255))
         self.screen.blit(lbl, (70, 130))
 
         # Right Panel (Settings & Preview)
         panel_right = pygame.Rect(400, 110, 570, 600)
-        draw_glass_panel(self.screen, panel_right, alpha=20, radius=20)
+        draw_menu_panel(self.screen, panel_right)
         
         lbl = self.font_lg.render("Game Settings", True, (255, 255, 255))
         self.screen.blit(lbl, (430, 130))
@@ -323,11 +315,11 @@ class RenderMixin:
         self.screen.blit(step_txt, (self.screen_w - step_txt.get_width() - 30, ui_top + 15))
 
         if self._metrics:
-            _, act_a, act_b, dt_a, dt_b = self._metrics[-1]
+            _, act_a, act_b, _, _ = self._metrics[-1]
             act_a_str = act_a.name if hasattr(act_a, 'name') else str(act_a)
             act_b_str = act_b.name if hasattr(act_b, 'name') else str(act_b)
             last_txt = self.font_md.render(
-                f"A: {act_a_str} ({dt_a*1000:.0f}ms) | B: {act_b_str} ({dt_b*1000:.0f}ms)",
+                f"A: {act_a_str} | B: {act_b_str}",
                 True, C_TEXT_DIM
             )
             self.screen.blit(last_txt, (30, ui_top + 55))
@@ -355,8 +347,6 @@ class RenderMixin:
         state = self.state
         sa, sb = state.score_a(), state.score_b()
         
-        draw_glass_panel(self.screen, pygame.Rect(0, 0, self.screen_w, self.screen_h), alpha=150, border_alpha=0, radius=0)
-
         if sa > sb:
             msg, col = "AGENT A WINS!", C_WIN_A
         elif sb > sa:
@@ -364,20 +354,7 @@ class RenderMixin:
         else:
             msg, col = "DRAW!", C_WIN_DRAW
 
-        txt = self.font_lg.render(msg, True, col)
-        sub = self.font_md.render(f"Final Score — A: {sa}  |  B: {sb}", True, C_TEXT)
-        hint = self.font_md.render("Press SPACE to return to Menu", True, (200, 255, 200))
-
-        cx = self.screen_w // 2
-        cy = self.screen_h // 2
-        
-        # Panel for result
-        res_rect = pygame.Rect(0, 0, 400, 200)
-        res_rect.center = (cx, cy)
-        draw_glass_panel(self.screen, res_rect, alpha=40, border_alpha=150, radius=20)
-
-        self.screen.blit(txt, txt.get_rect(center=(cx, cy - 40)))
-        self.screen.blit(sub, sub.get_rect(center=(cx, cy + 10)))
-        self.screen.blit(hint, hint.get_rect(center=(cx, cy + 60)))
+        draw_result_panel(self.screen, self.fonts, msg,
+                          [f"Final Score:  A {sa}   |   B {sb}"], col)
 
 

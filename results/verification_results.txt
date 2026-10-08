@@ -1,5 +1,0 @@
-Map: maps/test_solvable.txt
-States tested: 40
-Admissibility violations: 0
-Consistency violations: 0
-Max true_cost - h(s) margin: 4

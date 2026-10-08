@@ -1,5 +1,8 @@
 __pycache__/
 *.pyc
+.DS_Store
+.pytest_cache/
 01_assignment_context.md
 02_heuristic_context.md
 03_problem_solving_instructions.md
+.venv/

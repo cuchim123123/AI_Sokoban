@@ -95,6 +95,7 @@ def run(args):
                 match = dict(case=name,rewrite_side=new_side,score_a=s.score_a(),score_b=s.score_b(),turns=turns)
                 report["matches"].append(match)
                 print(f"{name} rewrite={new_side}: {s.score_a()}:{s.score_b()}",flush=True)
+        Path(args.output).parent.mkdir(parents=True, exist_ok=True)
         Path(args.output).write_text(json.dumps(report,indent=2),encoding="utf-8")
     return report
 
@@ -104,7 +105,7 @@ if __name__ == "__main__":
     parser.add_argument("--baseline-dir")
     parser.add_argument("--budget",type=float,default=1.0)
     parser.add_argument("--rounds",type=int,default=50)
-    parser.add_argument("--maps",nargs="+",default=["arena_open","capacity_lab","dense_goals","corridors","test_race"])
+    parser.add_argument("--maps",nargs="+",default=["arena_open","capacity_lab","main","corridors","test_race"])
     parser.add_argument("--matches",action="store_true")
     parser.add_argument("--matches-only",action="store_true")
     parser.add_argument("--output",default="results/competitive_comparison.json")

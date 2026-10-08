@@ -12,7 +12,6 @@ from src.competitive.agent_b import AgentB
 from src.shared.common import (
     TILE,
     UI_H,
-    create_gradient_surface,
     Button,
 )
 
@@ -23,9 +22,6 @@ from src.shared.common import (
 
 class SetupMixin:
     """Menu/setup screen: buttons, options, game start, navigation."""
-
-    def _create_gradient_bg(self):
-        self.bg_surface = create_gradient_surface(1024, 768, (10, 15, 30), (50, 20, 80))
 
     def _setup_menu_buttons(self):
         self.menu_buttons = []
