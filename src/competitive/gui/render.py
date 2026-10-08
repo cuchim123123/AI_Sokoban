@@ -126,35 +126,26 @@ class RenderMixin:
             b.draw(self.screen)
 
     def _get_box_visual_positions(self, t):
-        prev_boxes = self.prev_state.boxes
-        next_boxes = self.state.boxes
-        
-        prev_unmatched = list(prev_boxes - next_boxes)
-        next_unmatched = list(next_boxes - prev_boxes)
-        
-        positions = []
-        for b in (prev_boxes & next_boxes):
-            positions.append((b, b)) 
-            
-        for pb in prev_unmatched:
-            best_nb = None
-            best_dist = 999
-            for nb in next_unmatched:
-                dist = abs(pb[0]-nb[0]) + abs(pb[1]-nb[1])
-                if dist < best_dist:
-                    best_dist = dist
-                    best_nb = nb
-            if best_nb:
-                positions.append((pb, best_nb))
-                next_unmatched.remove(best_nb)
-                
-        for nb in next_unmatched:
-            positions.append((nb, nb))
-            
-        res = []
-        for pb, nb in positions:
-            res.append((lerp_pos(pb, nb, t), nb)) 
-        return res
+        # Boxes have no IDs. Recover actual pushes from executed player
+        # movement instead of guessing nearest matches between unordered sets.
+        # Always infer in chronological order, then reverse paths for rewind.
+        reverse = self.state.step < self.prev_state.step
+        earlier, later = ((self.state, self.prev_state) if reverse
+                          else (self.prev_state, self.state))
+        sources = {}
+        if later.step == earlier.step + 1:
+            for start, end in ((earlier.agent_a, later.agent_a),
+                               (earlier.agent_b, later.agent_b)):
+                dx, dy = end[0] - start[0], end[1] - start[1]
+                if abs(dx) + abs(dy) != 1 or end not in earlier.boxes:
+                    continue
+                box_end = (end[0] + dx, end[1] + dy)
+                if box_end in later.boxes:
+                    source, dest = (box_end, end) if reverse else (end, box_end)
+                    sources[dest] = source
+
+        return [(lerp_pos(sources.get(dest, dest), dest, t), dest)
+                for dest in sorted(self.state.boxes)]
 
     def _draw_board(self):
         board = self.board
