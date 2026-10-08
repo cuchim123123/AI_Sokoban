@@ -1,6 +1,7 @@
 # Competitive AI audit — findings, fixes, and benchmarks
 
-Status: complete (baseline, final code, and three variants benchmarked).
+Status: complete through Phase 9 (baseline, four shipped configurations,
+and three ablations benchmarked).
 
 Scope: `src/competitive/{agent_a,agent_b,evaluation,state,transition}.py`
 under the standing engine constraints — GBFS stays the expansion engine,
@@ -53,7 +54,26 @@ Two playtest complaints were reproduced, root-caused, and fixed:
    11) and boxes scored **10 → 14** — part of the no-exit quality gap
    (19) recovered at a bounded, measured latency cost.
 
-68 tests green throughout (41 original + 27 new in
+4. **"They wander instead of focusing on the boxes" (Phase 9).** Two
+   causes, both fixed structurally. (a) *Ranking*: within a tied
+   tactical bucket the key consulted the optimistic GBFS deep value
+   before the window's own exact margin — the exact window verdict lost
+   in 21 of 21 sampled bucket ties. `_rank_keys` now orders
+   `[tact_bucket, exact_tact, strike, deep_bucket, ...]` and the early
+   exit's frozen prefix follows it. (b) *Dense ping-pong*: both agents
+   looped (4,3)↔(5,3) for 40+ steps with a scoring push on the table
+   every cycle (46 flags, A never scored). The gated 3-round window
+   flips ≈±1000 per extra round — advance looks +416 on odd-parity
+   steps (the line censors B's counter) and −570 on even steps (B's
+   counter-invasion included) — so the agents gamed the horizon:
+   advance when censored, retreat when not. An attempted
+   productive-return exemption turned the return half free; A/B showed
+   it *enabling* the loop (46 flags, A=0) where the flat 250 breaks it
+   (**11 flags, A cashes**), so the exemption was removed. Final
+   benchmark: p50 **89–314 ms**, misses **3/1200 (0.25 %)** (baseline
+   222, tie gate 44), boxes **17/28** (baseline 11, tie gate 14).
+
+72 tests green throughout (41 original + 31 new in
 `tests/test_search_identity.py`).
 
 ---
@@ -68,7 +88,7 @@ Two playtest complaints were reproduced, root-caused, and fixed:
 | A2 | Exit comparison used the full `-deep` value, which creeps monotonically → structural stability never registered even when reached. | bug (wrong comparison key) | fixed |
 | A3 | Fix: `EXIT_STABLE = 300` pops **and** `EXIT_STABLE_MS = 0.15` s wall silence (both required), compared on `_rank_structure` (winner + bucket keys), above `EXIT_MIN_NODES = 2000` / `EXIT_MIN_DEPTH = 4` floors. | fix | verified (bench + ablations below) |
 | A4 | All deadlines moved to `time.monotonic()` (perf-counter affine, immune to clock adjustment). | hardening | fixed |
-| A5 | The stability exit could fire on an *unfinished tie-break*: with the top two sharing the tactical bucket, the winner rests on the optimistic deep term, and an undersampled rival's "no change for 300 pops" is an artifact of expansion order (the `--no-exit` ablation's 19-vs-10 box gap is the cost). Probe `tie_probe.py`: **~50 % of moves are bucket-tied** (45–54 %/map), so a veto on ties would return to the baseline burn. | soundness gap (exit vs partial-search consistency) | fixed: `_exit_decided` certifies bucket-separation on the frozen tactical key or a drained rival; a live tie waits for `EXIT_TIE_FRACTION = 0.60` of the budget — 68 tests, dense A/B (GATE 0→0.6): flags 40→13 |
+| A5 | The stability exit could fire on an *unfinished tie-break*: with the top two sharing the tactical bucket, the winner rests on the optimistic deep term, and an undersampled rival's "no change for 300 pops" is an artifact of expansion order (the `--no-exit` ablation's 19-vs-10 box gap is the cost). Probe `tie_probe.py`: **~50 % of moves are bucket-tied** (45–54 %/map), so a veto on ties would return to the baseline burn. | soundness gap (exit vs partial-search consistency) | fixed: `_exit_decided` certifies bucket-separation on the frozen tactical key or a drained rival; a live tie waits for `EXIT_TIE_FRACTION = 0.60` of the budget — 72 tests, dense A/B (GATE 0→0.6): flags 40→13 |
 
 ### B. Play quality / the value of a point (`evaluation.py`)
 
@@ -125,19 +145,24 @@ effect on the diagnosed state: after-score eval **−806 → +385**; window
 | # | Finding | Status |
 |---|---------|--------|
 | F1 | Tactical window: two complete simultaneous rounds over **all** rule-permitted pairs; third round only with `WINDOW_DEEP_GATE = 0.15` headroom inside `WINDOW_BUDGET = 0.35` of the decision; all-or-nothing on timeout with a robust one-ply fallback (never a stale window). Documented as pure-action maximin, not mixed strategies. | audited ✓ |
-| F2 | Expansion priority (GBFS heap) is deliberately separate from the backed-up root value: tactical bucket (window − penalties, `TACTICAL_MARGIN = 100`) → deep bucket (`ROBUST_MARGIN = 200`) → strike tiebreak → exact values. Transient peaks cannot override the window (regression test pins this). | audited ✓ |
+| F2 | Expansion priority (GBFS heap) is deliberately separate from the backed-up root value: key order (Phase 9) = tactical bucket (window − penalties, `TACTICAL_MARGIN = 100`) → **exact window value** → strike tiebreak → deep bucket (`ROBUST_MARGIN = 200`) → exact deep → exact robust. Within a bucket the window's own exact margin decides; deep/strike only refine exact window ties. Transient peaks cannot override the window or a decisive exact window separation (regression tests pin both). | fixed (Phase 9) |
 | F3 | `DISCOUNT_ALPHA = 0.0`: undiscounted baseline; speculative points only ever scaled by remaining horizon, never re-counted per depth; terminal wins never discounted below losses. | audited ✓ |
-| F4 | Penalties: `AWAY_PENALTY = 25`/step on exact walk+push delivery-cost damage (documented geometry: scoring pushes are not charged for the box they cash), `REVISIT_PENALTY = 250`. Remaining flags show penalty-driven ordering only inside bucket ties — accepted. | audited ✓ |
+| F4 | Penalties: `AWAY_PENALTY = 25`/step on exact walk+push delivery-cost damage (documented geometry: scoring pushes are not charged for the box they cash), `REVISIT_PENALTY = 250` **flat** — an exemption for delivery-cost-lowering returns was A/B-tested and removed (see F5). Remaining flags show penalty-driven ordering only inside bucket ties — accepted. | audited ✓ |
+| F5 | Dense horizon-gaming (Phase 9 diagnosis): the R3 window flips ≈±1000 per extra round because a box's credit enters or leaves the horizon — from (4,3) on A-parity steps the line ends at A's high-water mark (+416, censored before B's counter), from (5,3) on B-parity steps it includes B's walk-into-the-vacated-approach counter (the cash leaf computes −1346: +1000 cash swamped by losing every remaining race by one cell). Root selection is one-step-greedy, so advance-when-censored / retreat-when-not became a stable loop. The flat revisit charge prices the return above the advance and breaks it; the productive-return exemption made it free and reproduced the loop (record_game A/B: 46 flags/0 vs 11 flags/A cashes). | diagnosed + mitigated (flat charge), not solved |
 
-### G. Regression coverage (`tests/test_search_identity.py`, 22 tests)
+### G. Regression coverage (`tests/test_search_identity.py`, 31 new tests)
 
 Identity across rounds (C1), odd/even priority, transient peak vs window
 (F2), delayed threat, cross-root transposition (D1), scoring push with
 checked alternatives, detours/oscillation, four-direction submissions,
 deadline behavior, exhaustive reference on tiny boards, pure-action
 maximin vs mixed strategies, zero-sum and label symmetry for the new steal
-bounds (B1), and the early-exit certificate (bucket separation / drained
-rival / tie gate, A5). All pass together with the original 41 → **68 green**.
+bounds (B1), the early-exit certificate (bucket separation / drained
+rival / tie gate, A5), and Phase 9's four: exact window margin beats a
+deep peak inside the bucket, strike breaks exact window ties before deep,
+exact window separation decides before the tie gate, revisit penalty flat
+even when the return lowers delivery cost (A/B numbers in the comment).
+All pass together with the original 41 → **72 green**.
 
 ---
 
@@ -149,12 +174,12 @@ wall-clock latency per decision.
 
 ### Latency (all 10 games, 1200 agent-decisions)
 
-| metric | baseline (pre-audit) | corrected (Phase 6–7) | **final** (+ tie gate, Phase 8) |
-|---|---|---|---|
-| p50 / move | **951–953 ms, every game** | **15–525 ms** (≈220 ms median) | **17–572 ms** (≈290 ms median) |
-| p95 / move | 1368–2465 ms | 412–1128 ms | 580–1296 ms |
-| max / move | 1506–**3180 ms** | 460–1339 ms | 758–1696 ms |
-| deadline misses (>1 s) | 6–22 per game per agent (~222 total) | **11 total** (9 of them dense-mirror) | **44 total** (3.7 % of decisions) |
+| metric | baseline (pre-audit) | corrected (Phase 6–7) | + tie gate (Phase 8) | **final (Phase 9)** |
+|---|---|---|---|---|
+| p50 / move | **951–953 ms, every game** | **15–525 ms** (≈220 ms median) | 17–572 ms (≈290 ms median) | **89–314 ms** (≈190 ms median) |
+| p95 / move | 1368–2465 ms | 412–1128 ms | 580–1296 ms | ≤ 953 ms |
+| max / move | 1506–**3180 ms** | 460–1339 ms | 758–1696 ms | 674–**1098 ms** |
+| deadline misses (>1 s) | 6–22 per game per agent (~222 total) | **11 total** (9 of them dense-mirror) | 44 total (3.7 %) | **3 total (0.25 %)** |
 ### Ablations (same harness; the two ablations ran on the pre-gate code — they are what motivated it)
 
 | config | p50 / move | misses (>1 s) | boxes scored (sum of 10 games) |
@@ -162,7 +187,9 @@ wall-clock latency per decision.
 | corrected (exit + window) | 15–525 ms | **11** | 10 |
 | `--no-exit` (window kept) | **951–954 ms** on 8 games (test_race orig terminates naturally at 15–38 ms; its mirror 860–939) | **209** | 19 |
 | `--no-window` (exit kept) | 20–738 ms (p95 up to 1656) | **70** | 10 |
-| **final: + tie gate 0.60 (shipped)** | 17–572 ms | 44 | **14** |
+| + tie gate 0.60 (Phase 8) | 17–572 ms | 44 | 14 |
+| + exact-window key + exit prefix, exemption attempt | 23–291 ms | 8 | 12 |
+| **final: reorder + flat revisit (Phase 9, shipped)** | **89–314 ms** | **3** | **17** |
 
 Reading: the early exit is what bought the latency — without it the
 corrected agents return to the baseline burn (p50 ≈953 ms, ~200 misses
@@ -188,6 +215,17 @@ fight is: dense 2 → 4, corridors 2 → 4) at the cost of misses rising
 with p50 within the same order of magnitude. `EXIT_TIE_FRACTION` moves
 along that curve; the pre-gate and no-exit rows bound it.
 
+Phase 9 then closed the remaining soundness gap in that same trade: the
+exit's frozen prefix now covers the first three keys (bucket, exact
+window, strike), so certifying a winner no longer freezes a tie-break
+that the sort could still reorder — misses fall **44 → 3** while boxes
+rise **14 → 17** (arena cashes 4/4; dense mirror 4/5 with a 3:1 win).
+The one-box dip in the exemption-attempt row (12) is the dense ping-pong
+costing whole games; the flat revisit charge (final row) is what recovers
+it. No single row is gospel at one game per cell — the monotone story
+across configurations (misses 222 → 44 → 3, boxes 11 → 14 → 17) is the
+evidence.
+
 The window's *tactical* value is established by the instrumented traces
 and tests rather than these totals: it is the oracle that refused the
 −818 score (B1), and after the fix it ranks the score +388 over the walk
@@ -196,13 +234,14 @@ pins that hierarchy.
 
 ### Scores / boxes (single game per cell; treat as indicative)
 
-| map | baseline | corrected | **final (tie gate)** |
-|---|---|---|---|
-| arena_open | 1:1 (2/2), 1:1 (2/2) | 1:0 (1/2), 1:0 (1/2) | 1:0 (1/2), 1:0 (1/2) |
-| capacity_lab (**repro**) | 0:1 (1/3), 0:0 (0/3) | 2:1 (3/3), 1:1 (1/3) | **1:2 (3/3)**, 2:0 (1/3) |
-| dense_goals | 0:0 (0/5), 2:0 (2/5) | 0:1 (1/5), 0:1 (1/5) | **1:1 (2/5), 1:1 (2/5)** |
-| corridors | 1:1 (2/3), 1:1 (2/3) | 1:0 (1/3), 1:0 (1/3) | **1:1 (2/3), 1:1 (2/3)** |
-| test_race | 0:0 (0/1), 1:0 (0/1) | 0:0 (0/1), 1:0 (0/1) | 0:0 (0/1), 1:0 (0/1) |
+| map | baseline | corrected | + tie gate (Phase 8) | **final (Phase 9)** |
+|---|---|---|---|---|
+| arena_open | 1:1 (2/2), 1:1 (2/2) | 1:0 (1/2), 1:0 (1/2) | 1:0 (1/2), 1:0 (1/2) | 1:1 (**2/2**), 1:1 (**2/2**) |
+| capacity_lab (**repro**) | 0:1 (1/3), 0:0 (0/3) | 2:1 (3/3), 1:1 (1/3) | **1:2 (3/3)**, 2:0 (1/3) | 1:1 (2/3), 1:1 (1/3) |
+| dense_goals | 0:0 (0/5), 2:0 (2/5) | 0:1 (1/5), 0:1 (1/5) | 1:1 (2/5), 1:1 (2/5) | 1:0 (1/5), **3:1 (4/5)** |
+| corridors | 1:1 (2/3), 1:1 (2/3) | 1:0 (1/3), 1:0 (1/3) | 1:1 (2/3), 1:1 (2/3) | 1:1 (2/3), 1:1 (2/3) |
+| test_race | 0:0 (0/1), 1:0 (0/1) | 0:0 (0/1), 1:0 (0/1) | 0:0 (0/1), 1:0 (0/1) | 0:1 (1/1), 0:0 (0/1) |
+| **boxes / 10 games** | 11 | 10 | 14 | **17** |
 
 Per-map box totals are noisy at one game per cell (single-game
 variance acknowledged); the repro map remains the structural showpiece
@@ -217,6 +256,9 @@ extra thinking pays (+2 boxes each vs the pre-gate code).
 | capacity, pre-B1-fix | 2 (incl. the −818 refusal) | 4/5 | A=0 B=3 (A shut out) |
 | capacity, fixed | 2 (both one-bucket close calls) | **5/6** | A=1 B=1 |
 | dense, fixed | 10 (mostly genuine multi-box race trades) | 5/9 | A=2 B=2 (4/5 boxes) |
+| dense, Phase 9 exemption attempt | 46 (frozen ping-pong, A at (4,3) steps 3–37) | 45/3 | A=0 B=1 |
+| **dense, Phase 9 final (flat revisit)** | **11** | **6/4** | **A=1 cashes, no stall** |
+| **capacity, Phase 9 final (flat revisit)** | 5 | 8/5 | **A=1 B=2 — 3/3 boxes cashed** (best of any run) |
 
 5-map sim at 1.0 s: time/move 110–455 ms; arena cashes both boxes by
 step 10; capacity ends 2:0 (A), strips visibly contested (conflicts 2–6
@@ -245,9 +287,25 @@ and `ui_smoke.py` (menus, single solve, competitive game).
   play; no claim that depth-25 GBFS lines cover all opponent continuations,
   and no claim that any filtered frontier is exhausted — the search returns
   the best *found* backup within budget, by design.
-- **Dense maps** remain the weakest scoring map (1–2 of 5 boxes); their
-  flags are honest multi-box race trades rather than inversions, but the
-  agents could still be sharper about when a cash strands the rest.
+- **Dense maps** remain the weakest scoring map — 1 of 5 in the final
+  bench's original assignment (the mirrored one cashes 4/5 and wins 3:1).
+  The remaining refusal is *window content*, not ranking: the R2/R3
+  decomposition in the Phase 9 plan entry shows the eval ranking contest
+  promises over cash at the anchor state. No weight retuning was done
+  (`W_LOCKED`/`W_PROJECTED` untouched by design); the horizon-gaming
+  ping-pong itself is diagnosed and mitigated (flat revisit charge), not
+  solved — a root choice is still one-step-greedy over a parity-alternating
+  2–3 round window.
+- **`wander5` probe counts are confounded post-Phase-9**: games diverge
+  across configurations and the sampling is not normalized (TRUE_WANDER
+  59 → 79 includes the raw-tie class where the flat revisit charge breaks
+  a window tie toward a non-progressing walk — the documented cost of
+  the same charge that breaks the dense loop). Record metrics
+  (flags/cashes/box totals) are the primary evidence, not probe counts.
+- **Deadline misses**: 3 of 1200 decisions at 1042–1098 ms (deep-window
+  tail on dense/race) — the spec's ≤ 1000 ms per decision is met on
+  99.75 % of moves; the tail is the window's third-round extension under
+  contention, not an unbounded search.
 
 ## 5. Final architecture
 
@@ -259,8 +317,9 @@ decision (≤ TIME on time.monotonic)
 ├─ GBFS expansion (priority = heuristic eval ONLY, never the backup)
 │    state key = positions + boxes + creds + step (+ board serial in caches)
 │    credit to deep[root] before the closed check (cross-root transplants)
-├─ backup per root: [window − root penalties] bucket → deep bucket →
-│    strike tiebreak → exact values   (structure-only early-exit key on top)
+├─ backup per root: [window − root penalties] bucket → exact window →
+│    strike tiebreak → deep bucket → exact deep → exact robust
+│    (frozen exit prefix = first three keys)
 ├─ eval (zero-sum, label-symmetric, undiscounted)
 │    locked 1000/cred · projected 600/race-won · adv 12/step (winner-
 │    restricted, capped) · initiative 10/step (capped) · steal 1200×

@@ -398,6 +398,100 @@ bucket.
   the measured middle of the quality/latency curve; `EXIT_TIE_FRACTION`
   is the knob.
 
+### Phase 9: root ranking fidelity — the window's exact verdict beats optimistic descendants (completed)
+
+#### Symptom
+
+Probe v4/v5 (root-table dumps on dense/corridors/capacity): among
+bucket-tied moves the exact window margin favored the approach or push
+in 21 sampled cases and deep/strike overrode it in **all 21** — the
+Phase 6 key consulted the optimistic descendant *before* the window's
+own exact value. The second visible class: dense_goals played a frozen
+ping-pong — both agents stepped (4,3)↔(5,3) / (10,3)↔(9,3) every round
+for 40+ steps with a scoring push on the table every cycle
+(`record_game`: **46 flags, A never scored**).
+
+#### Diagnosis
+
+- **Ranking**: `_rank_keys` was `[tact_bucket, deep_bucket, strike,
+  exact_tact, ...]` — within a tied tactical bucket the GBFS deep value
+  (monotone, expansion-order dependent, the audit's own "optimistic
+  peak") settled the verdict *before* the window's exact margin, so a
+  decisive window separation (e.g. −420 vs −574) could be discarded for
+  a deep peak. The early exit certified stability on the then-first three
+  components, so any key change must move the frozen prefix with it.
+- **The dense ping-pong is horizon-gaming, not eval noise.** Exact
+  replication of the gated 3-round window at the anchor state: R2 ranks
+  SCORE above the walk (−420 vs −574); R3 flips it (−574 vs +416).
+  Each extra round flips the advance verdict by ≈ ±1000 — one box's
+  credit entering or leaving the horizon: from (4,3) on odd (A-parity)
+  steps the line ends at A's high-water mark (seizes the (7,3) approach
+  cell, *censored before B's counter*) = +416; from (5,3) on even steps
+  it includes B's counter (walk into the vacated approach cell after
+  A's cash: the cash leaf computes −1346 — A's +1000 is swamped by
+  losing every remaining race by one cell) = −570. Advance when the
+  window censors B's reply, retreat when it doesn't, forever.
+  The return half of that loop *is* a delivery-cost-lowering return.
+
+#### Fix
+
+1. `_rank_keys` → `[tact_bucket, exact_tact, strike, deep_bucket,
+   exact_deep, exact_robust, order]`: the window's exact margin becomes
+   the second key and decides every bucket tie it can see; deep/strike
+   only refine exact window *ties* (a transient deep peak can no longer
+   override a decisive window margin). Bucket precedence (tactical
+   bucket first) is unchanged.
+2. `_exit_decided`'s frozen prefix generalised from `key[0]` to the
+   frozen prefix `(tact_bucket, exact_tact, strike)` — the three
+   components settled once the window completes — so the exit certifies
+   exactly what the sort can still see; tie gate and drained-rival
+   logic untouched.
+3. Revisit pricing kept **flat**: an attempted productive-return
+   exemption (free when the return lowers walk+push delivery cost) was
+   A/B-tested in `record_game` (`PRODRET=0/1`) and **removed**. Dense:
+   exemption → 46 flags and A frozen; flat → **11 flags, A cashes**
+   (the flat 250 makes the return cost more than the advance, breaking
+   the parity cycle). Capacity: flat cashes **3/3 — better than the
+   exemption's run** (2/3), flags 5 vs 2 (flags are a nudge, boxes are
+   the objective). The exemption's original motive (no-WAIT forces an
+   agent off its push cell) stays a documented trade-off, not a rule.
+
+#### Result
+
+- **72 tests green** (4 new: exact window margin beats a deep peak
+  within the bucket; strike breaks exact window ties before deep; exact
+  window separation decides before the tie gate; revisit penalty flat
+  even when the return lowers delivery cost — with the A/B numbers in
+  the comment).
+- `record_game` final: dense **flags 46 → 11, scoring roots taken 3 → 4,
+  A frozen → A=1 cashes**; capacity **3/3 boxes cashed** (best of any
+  run), flags 5; arena 4/4 in the bench.
+- Bench `reorder_flat` (5 maps × 2 assignments, 1200 decisions): p50
+  **89–314 ms**, p95 ≤ 953, misses **3/1200 = 0.25 %** (baseline 222 =
+  18.5 %, tie gate 44 = 3.7 %), boxes **17/28** (baseline 11, tie gate
+  14, Phase 9 exemption attempt 12): arena 4/4, dense 5/10 (mirrored
+  4/5 with a 3:1 win), capacity 3/6, corridors 4/6, race 1/2.
+- Label symmetry re-verified (`test_evaluate_is_label_symmetric`,
+  `mirror_test` 3 maps), AI beats random in both seats (arena 2-0,
+  dense 2-0 / 3-0), `ui_smoke` OK (8 screenshots).
+
+#### Known limitations
+
+- **dense orig still cashes 1/5** in the bench game (mirrored 4/5):
+  the window-content class — the eval ranks contest promises over cash
+  on that map at the anchor state; no weight retuning was done
+  (`W_LOCKED`/`W_PROJECTED` untouched by design; the R2/R3 decomposition
+  is recorded here instead).
+- `wander5` TRUE_WANDER counts (59 pre → 79 post) are confounded: the
+  games diverge, the sampling is not normalized, and the raw-tie
+  sub-class (window exact tie, flat pen breaks toward a walk) is the
+  documented cost of the flat charge whose benefit is the cycle break —
+  record metrics (flags/cashes) are the primary evidence.
+- 3 deadline misses at 1042–1098 ms (deep-window tail on dense/race);
+  ≥2-bucket separations remain unflippable in budget; `STEAL_RANGE=40`
+  else-gradient ≈ constant; no claim of depth-25 coverage or an
+  exhausted frontier.
+
 ---
 
 ## 4. Implementation checklist
@@ -447,6 +541,11 @@ bucket.
 - [x] denial push gates (own-cred and remaining-loose rules)
 - [x] early-exit latency bounds (quiet exit fast, hard cap on dense boards)
 - [x] exhaustive pure-action maximin reference for the tactical window
+- [x] exact window margin beats an optimistic deep peak inside a bucket
+- [x] exact window separation decides before the tie gate (frozen prefix)
+- [x] strike breaks exact window ties before the deep bucket
+- [x] revisit penalty stays flat even when the return lowers delivery cost
+      (dense ping-pong A/B: exemption 46 flags/0 vs flat 11 flags/cash)
 
 ---
 
