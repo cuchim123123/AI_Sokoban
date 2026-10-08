@@ -1,5 +1,10 @@
+import os
 import sys
 import time
+
+# Allow running from anywhere: put the repo root on sys.path.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from src.competitive.state import Action
 from src.competitive.agent_a import AgentA
 from src.competitive.agent_b import AgentB

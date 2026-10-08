@@ -1,6 +1,6 @@
 import unittest
-from src.core.parser import parse_map
-from src.core.actions import get_successors, Action
+from src.single.core.parser import parse_map
+from src.single.core.actions import get_successors, Action
 
 class TestCore(unittest.TestCase):
     def test_parser(self):

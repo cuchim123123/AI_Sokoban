@@ -4,12 +4,19 @@ Deep-dive documentation of the repository: (1) what every file is for,
 (2) the heuristic used in each version, (3) the algorithms used and how
 they work. Verified against the current source tree (rewrite documented
 in `docs/competitive_rewrite.md`; the older GBFS-era design survives
-only in `docs/ai_search_improvement_plan.md` and
-`docs/audit_findings_report.md`).
+only in `docs/archive/ai_search_improvement_plan.md` and
+`docs/archive/audit_findings_report.md`).
 
 ---
 
 ## 1. What each file is for
+
+Every package directory carries an `__init__` module (not tabulated
+below): the leaf packages — `single/core`, `single/search`,
+`single/heuristics`, `competitive`, `experiments` — re-export a curated
+API via `__all__`, while the aggregator packages — `single`,
+`single/gui`, `shared`, `competitive/gui` — are docstring-only, so
+importing them has no side effects.
 
 ### Repository root
 
@@ -18,13 +25,9 @@ only in `docs/ai_search_improvement_plan.md` and
 | `main.py` | CLI entry point. Checks dependencies (pygame/scipy/numpy) and dispatches: `gui [map]` (launcher menu), `competitive [map] [steps] [ai_a] [ai_b]` (direct competitive launch), `benchmark` (UCS vs A\*), `verify [map]` (heuristic property checks). |
 | `README.md` | Project overview: single-agent features (UCS, A\*, matching heuristic), install/run/test instructions, competitive-mode pointer. |
 | `requirements.txt` | Python dependencies (pygame, scipy, numpy). |
-| `optimization.md` | Historical "AI optimization plan" for the *old* competitive agent (global TT, PV ordering, alpha-beta, eval cache). README states it no longer describes the current AI. |
-| `sim.py` | One-off headless harness: runs ~40 AI-vs-AI rounds on `arena_open.txt` through the real joint engine, printing submitted/executed actions, horizons and conflicts. Console output kept in `sim_out.txt` / `sim_output.txt`. |
-| `debug2.py` | One-off diagnostic: hard-codes a dense-goals state, runs `AgentB`, dumps `last_search` telemetry as JSON. |
-| `patch_juice.py`, `patch_rewind.py` | Historical one-shot text patchers that used to rewrite the competitive GUI (juice: blur/particles/shake; rewind: key-repeat + history scrubbing). Not runtime code — do not re-run. |
 | `.gitignore` | Excludes `__pycache__`, `*.pyc`, assignment-context markdown. |
 
-### `src/core/` — single-agent domain model
+### `src/single/core/` — single-agent domain model
 
 | File | Purpose |
 |---|---|
@@ -32,7 +35,7 @@ only in `docs/ai_search_improvement_plan.md` and
 | `parser.py` | ASCII map parser for single-agent maps: `%` wall, `A` agent, `B` box, `D` goal, `C` box-on-goal, space floor. Returns `(GameState, Board)`. |
 | `actions.py` | `get_successors(state, board)` — the only successor generator: four directions, walk or push (box destination must be free floor). No costs attached; no pruning here. |
 
-### `src/search/` — single-agent search algorithms
+### `src/single/search/` — single-agent search algorithms
 
 | File | Purpose |
 |---|---|
@@ -41,7 +44,7 @@ only in `docs/ai_search_improvement_plan.md` and
 | `ucs.py` | Uniform-Cost Search (graph search, unit cost). |
 | `astar.py` | A\* search with an injected heuristic callable; also the module-level `astar_search()` wrapper. |
 
-### `src/heuristics/` — single-agent heuristic components
+### `src/single/heuristics/` — single-agent heuristic components
 
 | File | Purpose |
 |---|---|
@@ -57,13 +60,17 @@ only in `docs/ai_search_improvement_plan.md` and
 | `verify_heuristic.py` | Samples up to 200 states per map and empirically checks **admissibility** (`h(s) ≤ true cost` via UCS) and **consistency** (`h(s) ≤ 1 + h(s′)`), writing `results/verification_results.txt`. |
 | `competitive_benchmark.py` | Competitive harness: per-map/per-perspective **decision traces** (chosen action, completed depth, nodes, root values, per-reply diagnostics) and optional **seat-swapped matches** against an on-disk baseline snapshot of `evaluation/transition/agent_a`; emits JSON to `results/`. |
 
-### `src/gui/` — presentation layer (shared + single-player)
+### `src/single/gui/` + `src/shared/` — presentation layer
+
+The single-player game screen lives in `src/single/gui/`; the components
+both versions reuse live in `src/shared/` (widgets) and the launcher shell.
 
 | File | Purpose |
 |---|---|
-| `app.py` | Unified launcher: main menu with two mode cards (1-Player Puzzle / 2-Players Competitive); dispatches to `SinglePlayerApp` or `CompetitiveApp` and returns to the menu. |
-| `single.py` | Single-player game screen: map-select setup (algorithm toggle A\*/UCS, live preview), background solve thread with token guard, animated auto-replay of the solution, HUD (steps, goals, cost/generated/expanded/ms), scrubbing controls. |
-| `common.py` | Shared visual toolkit both modes use: colors/TILE, fonts, image loading with fallbacks, gradient/blur helpers, glass panels, `Button`, the `Animator` (Businessman sprite sheets), and map-preview rendering. |
+| `shared/launcher.py` | Unified launcher: main menu with two mode cards (1-Player Puzzle / 2-Players Competitive); dispatches to `SinglePlayerApp` or `CompetitiveApp` and returns to the menu. |
+| `single/gui/single.py` | Single-player orchestrator (`SinglePlayerApp`): constructs window/assets and runs the main loop; each concern is a mixin from the sibling modules below. |
+| `single/gui/setup.py`, `events.py`, `game.py`, `render.py` | `SinglePlayerApp` mixins — setup screen (map-select, algorithm toggle A\*/UCS, live preview), keyboard/mouse input, game lifecycle (background solve thread with token guard, animated auto-replay, scrubbing controls) and all drawing (HUD: steps, goals, cost/generated/expanded/ms). |
+| `shared/common.py` | Shared visual toolkit both modes use: colors/TILE, fonts, image loading with fallbacks, gradient/blur helpers, glass panels, `Button`, the `Animator` (Businessman sprite sheets), and map-preview rendering. |
 
 ### `src/competitive/` — the two-player game
 
@@ -71,14 +78,14 @@ only in `docs/ai_search_improvement_plan.md` and
 |---|---|
 | `rules.md` | The rules spec given to the AI: simultaneous rounds, four directions only (no selectable WAIT), parity conflict priority, Rule-3 ranked fallbacks, temporary-credit scoring, proposed defaults. |
 | `state.py` | Competitive data model: `Action` (incl. `WAIT` sentinel), shared `Board` with precomputed tables (all-pairs walk `distances`, `push_costs`, `exact_step_costs` — exact walk+push step BFS per goal over `(box, player)` states) and a monotone `serial` used to scope caches; `CompetitiveState` (both agents, shared boxes, credit sets `boxes_on_goals_a/b`, `step`), with hash-with-step and hash-without-step variants. |
-| `parser.py` | Competitive map parser: `%` wall, ` `/`.` floor, `D` goal, `B` box (starts uncredited), `A` agent-A start, `C` agent-B start. Requires A, C and ≥1 goal. |
+| `parser.py` | Competitive map parser: `%` wall, ` `/`.` floor, `D` goal, `B` box (starts uncredited), `A` agent-A start, `E` agent-B start. Requires A, E and ≥1 goal. |
 | `transition.py` | The **shared deterministic joint engine**: intent/conflict detection, parity priority, Rule-3 loser diversion, credit bookkeeping, `Outcome`, memoized `resolve_joint_action_outcome` (40 000-entry cache), `get_valid_actions`. Used identically by live play, the AI's search, the GUI and tests. |
 | `preferences.py` | `round_preferences(...)`: the cheap, deterministic, non-recursive Rule-3 fallback ranking shared by live play, the engine's diversions and the search (so all three simulate identical fallbacks). |
 | `evaluation.py` | Score-unit, zero-sum evaluation (`evaluate`, `evaluation_components`), delivery-cost BFS/exact-step helpers, deadlock helpers (`deadlock_count`, `creates_deadlock`), module + injected caches. |
 | `agent_a.py` | The entire decision pipeline: `best_action()` → `_Planner` (time-bounded iterative-deepening alpha-beta maximin over simultaneous rounds) and the `AgentA` controller (budget, history, preference submission, telemetry). |
 | `agent_b.py` | `class AgentB(AgentA)` with only `perspective = "B"` — same engine from the other seat; evaluation mirrored, parity still uses real player labels. |
-| `rules.md` | (see above) |
-| `gui/__init__.py`, `gui/app.py` | `CompetitiveApp`: setup screen (map list, AI/human seat toggles, steps ±5), main loop with background compute threads, history scrubbing, human input (WASD / arrows), HUD (scores, **Steps Left**, last round's actions + ms, **conflict-priority readout**), floating "X WINS CONFLICT" badge, box color = neutral off goal / done on goal, result overlay. |
+| `gui/app.py` | `CompetitiveApp` orchestrator: constructs window/assets and runs the main loop (background compute threads, animation timing); each concern is a mixin from the sibling modules below. |
+| `gui/setup.py`, `gui/events.py`, `gui/game.py`, `gui/render.py` | `CompetitiveApp` mixins — setup screen (map list, AI/human seat toggles, steps ±5), input (WASD / arrows, history scrubbing, human turns), per-round computation + result application, and all drawing (HUD: scores, **Steps Left**, last round's actions + ms, **conflict-priority readout**, floating "X WINS CONFLICT" badge, box color = neutral off goal / done on goal, result overlay). |
 
 ### `tests/`
 
@@ -93,8 +100,10 @@ only in `docs/ai_search_improvement_plan.md` and
 
 ### Other directories
 
-- **`docs/`** — `implementation_plan.md` + `research_log.md` (original single-agent plan & design log); `ai_search_improvement_plan.md` + `audit_findings_report.md` (audit/phases of the *previous* GBFS-era competitive AI — historical); `competitive_rewrite.md` (**current** authoritative competitive-AI report).
-- **`maps/`** — single-agent maps (`benchmark_*.txt`, `test_*.txt`, `user_map.txt`); `maps/competitive/*.txt` — arena maps (5 fixtures).
+- **`docs/`** — `implementation_plan.md` + `research_log.md` (original single-agent plan & design log); `competitive_rewrite.md` (**current** authoritative competitive-AI report); `project_analysis.md` (this document).
+- **`docs/archive/`** — `ai_search_improvement_plan.md` + `audit_findings_report.md` (audit/phases of the *previous* GBFS-era competitive AI) and `optimization.md` (old-agent optimization plan); each banner-marked ARCHIVED, kept for history only.
+- **`tools/`** — relocated one-off scripts: `sim.py` (headless ~40-round AI-vs-AI harness on `arena_open.txt`; output in `tools/sim_out.txt` / `tools/sim_output.txt`), `debug2.py` (hard-coded dense-goals state → `AgentB` telemetry JSON), and the historical one-shot GUI patchers `patch_juice.py` / `patch_rewind.py` (do not re-run). `sim.py`/`debug2.py` self-bootstrap the repo root onto `sys.path`.
+- **`maps/`** — single-agent maps (`benchmark_*.txt`, `test_*.txt`, `user_map.txt`); `maps/competitive/*.txt` — arena maps (5 fixtures + `main.txt`).
 - **`results/`** — `benchmark_results.csv` (UCS vs A\*), `verification_results.txt` (0 admissibility/consistency violations), `competitive_comparison.json` + `competitive_matches*.json` (decision/match traces: depth, nodes, root values, per-turn submissions/executions, scores).
 - **`src/assets/`** — art (Kenney Sokoban tiles, Businessman sprite sheets + frame JSON, sci-fi pack). No logic.
 
@@ -335,10 +344,12 @@ The competitive AI has had two architectures: an earlier
 **GBFS/beam-style planner with staged tactical windows, deep/strike/
 robust ranking keys and weight-tuned evaluation** (fully documented —
 including its phases, audits and fixes — in
-`docs/ai_search_improvement_plan.md` and `docs/audit_findings_report.md`),
+`docs/archive/ai_search_improvement_plan.md` and
+`docs/archive/audit_findings_report.md`),
 and the **current** iterative-deepening pure-action maximin described
 above (see `docs/competitive_rewrite.md`, which supersedes those
-docs). `optimization.md` likewise describes the old agent. When reading
+docs). `docs/archive/optimization.md` likewise describes the old
+agent. When reading
 older docs, check them against `src/competitive/agent_a.py` and
 `src/competitive/evaluation.py` before assuming a constant or helper
 still exists.

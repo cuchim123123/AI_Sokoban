@@ -7,7 +7,7 @@ Map format (superset of single-agent format):
     D   goal
     B   box (initially uncredited to either agent)
     A   Agent A starting position
-    C   Agent B starting position   (C = "Challenger")
+    E   Agent B starting position
     space = floor (same as '.')
 
 The parser returns (CompetitiveState, Board).
@@ -39,14 +39,14 @@ def parse_competitive_map(path: str) -> Tuple[CompetitiveState, Board]:
                 boxes.add((x, y))
             elif ch == 'A':
                 agent_a = (x, y)
-            elif ch == 'C':
+            elif ch == 'E':
                 agent_b = (x, y)
             # ' ' and '.' are treated as floor — nothing to do
 
     if agent_a is None:
         raise ValueError(f"Map '{path}' has no Agent A start position (A).")
     if agent_b is None:
-        raise ValueError(f"Map '{path}' has no Agent B start position (C).")
+        raise ValueError(f"Map '{path}' has no Agent B start position (E).")
     if not goals:
         raise ValueError(f"Map '{path}' has no goal positions (D).")
 

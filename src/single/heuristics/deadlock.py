@@ -1,4 +1,4 @@
-from src.core.state import GameState, Board
+from src.single.core.state import GameState, Board
 
 def is_deadlock(state: GameState, board: Board) -> bool:
     """

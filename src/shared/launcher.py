@@ -2,7 +2,7 @@
 Unified Sokoban launcher — the game's main menu.
 
 Two modes share one shell:
-  • 1 Player  — single-agent puzzle solved by A* or UCS (src/gui/single.py)
+  • 1 Player  — single-agent puzzle solved by A* or UCS (src/single/gui/single.py)
   • 2 Players — competitive mode (src/competitive/gui/app.py)
 
 Both modes use the same visual style; the launcher dispatches to whichever
@@ -13,7 +13,7 @@ import sys
 
 import pygame
 
-from src.gui.common import (
+from src.shared.common import (
     make_fonts, draw_glass_panel, draw_glow, create_gradient_surface,
     load_blurred_image,
 )
@@ -204,7 +204,7 @@ class App:
     # ── Dispatch ─────────────────────────────────────────────────────────
 
     def _run_single(self):
-        from src.gui.single import SinglePlayerApp
+        from src.single.gui.single import SinglePlayerApp
         if self.single is None:
             self.single = SinglePlayerApp(self.preselect_map)
         pygame.display.set_caption("Sokoban — Puzzle Mode")

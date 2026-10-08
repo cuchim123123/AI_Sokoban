@@ -1,6 +1,6 @@
 from collections import deque
 from typing import Dict, Tuple
-from src.core.state import Board
+from src.single.core.state import Board
 
 def precompute_push_costs(board: Board) -> Dict[Tuple[int, int], Dict[Tuple[int, int], int]]:
     """

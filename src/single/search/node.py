@@ -1,5 +1,5 @@
 from typing import Optional, List
-from src.core.state import GameState, Action
+from src.single.core.state import GameState, Action
 
 class Node:
     def __init__(self, state: GameState, parent: Optional['Node'], action: Optional[Action], path_cost: int):

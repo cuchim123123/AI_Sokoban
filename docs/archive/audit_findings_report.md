@@ -1,3 +1,12 @@
+> **ARCHIVED** — This document describes an *older* architecture and is kept
+> for history only; it is no longer accurate. Current docs:
+> `docs/competitive_rewrite.md` (competitive AI), `docs/project_analysis.md`
+> (project overview). Root scripts referenced below now live in `tools/`,
+> and the `src/` layout was later reorganized (`src/core` → `src/single/core`,
+> `src/gui` → `src/shared` / `src/single/gui` — see `docs/project_analysis.md`).
+
+---
+
 # Competitive AI audit — findings, fixes, and benchmarks
 
 Status: complete through Phase 9 (baseline, four shipped configurations,

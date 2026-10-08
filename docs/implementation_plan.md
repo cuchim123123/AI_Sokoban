@@ -11,18 +11,18 @@
 - **GUI**: Pygame interface to visualize algorithms, step forward/backward.
 
 ## 2. Architecture & Modules
-- `src/core/state.py`: Represents the Sokoban state (Agent position, Box positions) immutably for hashing.
-- `src/core/parser.py`: Parses the map file and creates the initial state.
-- `src/core/actions.py`: Validates and applies actions, yielding successors.
-- `src/search/node.py`: Search node (state, parent, action, path_cost).
-- `src/search/ucs.py`: UCS algorithm.
-- `src/search/astar.py`: A* algorithm.
-- `src/heuristics/deadlock.py`: Static deadlock detection (corners, wall lines, 2x2 blocks).
-- `src/heuristics/push_distance.py`: Calculates minimum legal push distance using reverse BFS from goals.
-- `src/heuristics/matching.py`: Bipartite matching (Hungarian algorithm) for boxes to goals.
+- `src/single/core/state.py`: Represents the Sokoban state (Agent position, Box positions) immutably for hashing.
+- `src/single/core/parser.py`: Parses the map file and creates the initial state.
+- `src/single/core/actions.py`: Validates and applies actions, yielding successors.
+- `src/single/search/node.py`: Search node (state, parent, action, path_cost).
+- `src/single/search/ucs.py`: UCS algorithm.
+- `src/single/search/astar.py`: A* algorithm.
+- `src/single/heuristics/deadlock.py`: Static deadlock detection (corners, wall lines, 2x2 blocks).
+- `src/single/heuristics/push_distance.py`: Calculates minimum legal push distance using reverse BFS from goals.
+- `src/single/heuristics/matching.py`: Bipartite matching (Hungarian algorithm) for boxes to goals.
 - `src/experiments/benchmark.py`: Compare UCS vs A* (time, space, expanded nodes).
 - `src/experiments/verify_heuristic.py`: Check admissibility (`h(s) <= h*(s)`) and consistency (`h(s) <= 1 + h(s')`).
-- `src/gui/app.py`: Pygame application.
+- `src/shared/launcher.py`: Pygame launcher shell.
 
 ## 3. Heuristic Design: Legal Push Assignment
 **Definition**: For each box `b` and goal `d`, let `PushCost(b, d)` be the minimum number of legal pushes required to move a box from `b` to `d` ignoring other boxes but respecting walls. We construct a bipartite graph between current box positions and goal positions, and find the minimum weight perfect matching using the Hungarian algorithm. If a box is deadlocked (cannot reach any goal), the heuristic value is infinity.

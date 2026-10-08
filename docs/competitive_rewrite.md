@@ -121,7 +121,7 @@ Commands:
 ```powershell
 python -B -m unittest discover -s tests
 py -3.11 -B -m unittest discover -s tests
-python debug2.py
+python tools/debug2.py
 python -B -m src.experiments.competitive_benchmark --budget 1 --rounds 50
 ```
 

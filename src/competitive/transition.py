@@ -323,16 +323,6 @@ def resolve_joint_action_outcome(
     return outcome
 
 
-def resolve_joint_action(
-    state: CompetitiveState,
-    action_a: Action,
-    action_b: Action,
-    board: Board,
-) -> CompetitiveState:
-    """Legacy wrapper: next state only."""
-    return resolve_joint_action_outcome(state, action_a, action_b, board, 1000).state
-
-
 def clear_cache() -> None:
     """Drop the joint-transition memo (used by tests)."""
     _transition_cache.clear()

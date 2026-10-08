@@ -63,14 +63,6 @@ def _delivery_min(pos, box, goals, boxes, board):
     return min((delivery_cost(box, g, walks, boxes, board) for g in goals), default=INF)
 
 
-def strike_distance(pos, box, boxes, board):
-    walks = walking_distances(pos, boxes, board)
-    return min((walks.get((box[0]-dx, box[1]-dy), INF)
-                for dx, dy in _DIRS
-                if (box[0]+dx, box[1]+dy) in board.floor_cells
-                and (box[0]+dx, box[1]+dy) not in boxes), default=INF)
-
-
 def evaluation_components(state, board, max_steps):
     """A-perspective components, in points; terminal values are exact."""
     credit = state.score_a() - state.score_b()
@@ -121,16 +113,6 @@ def evaluate(state, board, perspective, max_steps, cache=None):
         store[key] = value
     raw = store[key]
     return raw if perspective == "A" else -raw
-
-
-competitive_heuristic = evaluate
-projected_score = evaluate  # historical API; an estimate, not a delivery count
-
-
-def nearest_objective(state, board, perspective):
-    pos = state.agent_a if perspective == "A" else state.agent_b
-    own = state.boxes_on_goals_a if perspective == "A" else state.boxes_on_goals_b
-    return min(sorted(state.boxes - own), key=lambda b: board.dist(pos, b), default=None)
 
 
 def has_legal_push(

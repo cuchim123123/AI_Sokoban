@@ -1,3 +1,12 @@
+> **ARCHIVED** — This document describes an *older* architecture and is kept
+> for history only; it is no longer accurate. Current docs:
+> `docs/competitive_rewrite.md` (competitive AI), `docs/project_analysis.md`
+> (project overview). Root scripts referenced below now live in `tools/`,
+> and the `src/` layout was later reorganized (`src/core` → `src/single/core`,
+> `src/gui` → `src/shared` / `src/single/gui` — see `docs/project_analysis.md`).
+
+---
+
 # Massive AI Search Optimization Plan
 
 This document outlines a massive optimization plan for the `competitive` AI agents, drawing on classical game-tree search concepts (Transposition Tables, Alpha-Beta Pruning, Action Ordering) tailored specifically to the Sokoban architecture.

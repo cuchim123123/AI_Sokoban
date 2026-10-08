@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Tuple, Optional, List
-from src.core.state import GameState, Board, Action
+from src.single.core.state import GameState, Board, Action
 
 class SearchAlgorithm(ABC):
     @abstractmethod

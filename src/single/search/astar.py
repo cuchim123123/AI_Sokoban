@@ -1,11 +1,11 @@
 import heapq
 from typing import Optional, List, Tuple, Dict, Callable
 import itertools
-from src.core.state import GameState, Board, Action
-from src.core.actions import get_successors
-from src.search.node import Node, reconstruct_path
-from src.heuristics.deadlock import is_deadlock
-from src.search.algorithm import SearchAlgorithm
+from src.single.core.state import GameState, Board, Action
+from src.single.core.actions import get_successors
+from src.single.search.node import Node, reconstruct_path
+from src.single.heuristics.deadlock import is_deadlock
+from src.single.search.algorithm import SearchAlgorithm
 
 class AStarSearch(SearchAlgorithm):
     def __init__(self, heuristic: Callable[[GameState], float]):

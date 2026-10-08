@@ -234,7 +234,7 @@ class Animator:
 def _preview_data(map_file, mode):
     """Parse a map just enough for a preview.  Returns (walls, goals, boxes,
     agents) where agents is a list of (pos, color)."""
-    from src.core.parser import parse_map as parse_single
+    from src.single.core.parser import parse_map as parse_single
     from src.competitive.parser import parse_competitive_map
 
     walls, goals, boxes, agents = set(), set(), set(), []

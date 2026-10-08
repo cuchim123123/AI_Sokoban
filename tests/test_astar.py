@@ -1,9 +1,9 @@
 import unittest
-from src.core.parser import parse_map
-from src.search.astar import astar_search
-from src.heuristics.push_distance import precompute_push_costs
-from src.heuristics.matching import MatchingHeuristic
-from src.core.state import Action
+from src.single.core.parser import parse_map
+from src.single.search.astar import astar_search
+from src.single.heuristics.push_distance import precompute_push_costs
+from src.single.heuristics.matching import MatchingHeuristic
+from src.single.core.state import Action
 
 class TestAStar(unittest.TestCase):
     def test_astar_solvable(self):

@@ -1,10 +1,10 @@
 import time
 import csv
-from src.core.parser import parse_map
-from src.search.ucs import UniformCostSearch
-from src.search.astar import AStarSearch
-from src.heuristics.push_distance import precompute_push_costs
-from src.heuristics.matching import MatchingHeuristic
+from src.single.core.parser import parse_map
+from src.single.search.ucs import UniformCostSearch
+from src.single.search.astar import AStarSearch
+from src.single.heuristics.push_distance import precompute_push_costs
+from src.single.heuristics.matching import MatchingHeuristic
 
 def run_benchmarks(map_files, output_csv="results/benchmark_results.csv"):
     results = []

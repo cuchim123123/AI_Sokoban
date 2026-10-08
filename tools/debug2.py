@@ -1,5 +1,11 @@
 """Inspect a reproducible dense-goals decision without patching the planner."""
 import json
+import os
+import sys
+
+# Allow running from anywhere: put the repo root on sys.path.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from src.competitive.parser import parse_competitive_map
 from src.competitive.agent_b import AgentB
 from src.competitive.state import CompetitiveState

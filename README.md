@@ -24,7 +24,7 @@ pip install -r requirements.txt
 ## Running the GUI
 ```bash
 $env:PYTHONPATH="."
-python src/gui/app.py maps/benchmark_2.txt
+python src/shared/launcher.py maps/benchmark_2.txt
 ```
 Controls in GUI:
 - `1`: Solve using UCS
@@ -56,11 +56,10 @@ python src/experiments/verify_heuristic.py maps/benchmark_2.txt
 ```
 
 ## Architecture
-- `src/core/`: Domain logic (parsing, states, action validation).
-- `src/heuristics/`: Heuristic calculations (reverse push BFS, bipartite matching, deadlocks).
-- `src/search/`: Search algorithms (UCS, A*).
+- `src/single/`: The single-agent version — `core/` (parsing, states, action validation), `search/` (UCS, A*), `heuristics/` (reverse push BFS, bipartite matching, deadlocks) and its `gui/`.
+- `src/competitive/`: The two-agent simultaneous version — rules, joint engine, agents, evaluation and its `gui/`.
+- `src/shared/`: Common game components reused by both versions — pygame widgets (`common.py`) and the launcher shell (`launcher.py`).
 - `src/experiments/`: Evaluation scripts.
-- `src/gui/`: Pygame application.
 
 ## Competitive simultaneous mode
 
@@ -77,6 +76,6 @@ and optimization documents describe previous implementations; their GBFS,
 alternating-turn and hard-filter proposals do not describe the current AI.
 
 Run all tests with `python -m unittest discover -s tests`. Run
-`python debug2.py` to print root values, completed horizons, fallbacks and
+`python tools/debug2.py` to print root values, completed horizons, fallbacks and
 executed outcomes for a fixed decision. The benchmark command is
 `python -m src.experiments.competitive_benchmark --help`.

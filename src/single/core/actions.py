@@ -1,4 +1,4 @@
-from src.core.state import GameState, Board, Action
+from src.single.core.state import GameState, Board, Action
 from typing import List, Tuple
 
 def get_successors(state: GameState, board: Board) -> List[Tuple[Action, GameState]]:

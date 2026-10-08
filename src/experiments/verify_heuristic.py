@@ -1,9 +1,9 @@
-from src.core.parser import parse_map
-from src.core.actions import get_successors
-from src.heuristics.push_distance import precompute_push_costs
-from src.heuristics.matching import MatchingHeuristic
-from src.search.ucs import UniformCostSearch
-from src.heuristics.deadlock import is_deadlock
+from src.single.core.parser import parse_map
+from src.single.core.actions import get_successors
+from src.single.heuristics.push_distance import precompute_push_costs
+from src.single.heuristics.matching import MatchingHeuristic
+from src.single.search.ucs import UniformCostSearch
+from src.single.heuristics.deadlock import is_deadlock
 from collections import deque
 import sys
 

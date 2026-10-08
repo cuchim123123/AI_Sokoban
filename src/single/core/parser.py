@@ -1,4 +1,4 @@
-from src.core.state import GameState, Board
+from src.single.core.state import GameState, Board
 from typing import Tuple
 
 def parse_map(file_path: str) -> Tuple[GameState, Board]:

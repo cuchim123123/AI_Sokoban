@@ -49,7 +49,7 @@ if __name__ == "__main__":
         args = sys.argv[1:]
 
     if command == "gui":
-        from src.gui.app import App
+        from src.shared.launcher import App
         map_file = args[0] if args else None
         if map_file:
             print(f"Starting unified game (puzzle map preselected: {map_file})")

@@ -28,11 +28,9 @@ from src.competitive.agent_a import (
 from src.competitive.agent_b import AgentB
 from src.competitive.evaluation import (
     W_LOCKED,
-    competitive_heuristic,
     creates_deadlock,
     deadlock_count,
     evaluate,
-    projected_score,
 )
 from src.competitive.parser import parse_competitive_map
 from src.competitive.state import Action, Board, CompetitiveState
@@ -492,15 +490,15 @@ class TestEvaluation(unittest.TestCase):
             evaluate(state, self.board, "B", 30), -W_LOCKED, places=9
         )
 
-    def test_legacy_helpers_still_exported(self):
+    def test_evaluation_scores_reflect_credit_and_perspective(self):
         state = CompetitiveState(
             (3, 2), (5, 5), frozenset({(3, 4)}),
             frozenset({(3, 4)}), frozenset(), 0,
         )
-        self.assertGreater(projected_score(state, self.board, "A", 30), 0.0)
+        self.assertGreater(evaluate(state, self.board, "A", 30), 0.0)
         self.assertGreater(
-            competitive_heuristic(state, self.board, "A", 30),
-            competitive_heuristic(state, self.board, "B", 30),
+            evaluate(state, self.board, "A", 30),
+            evaluate(state, self.board, "B", 30),
         )
 
     def test_creates_deadlock_detects_corner_but_not_goal(self):
@@ -554,7 +552,7 @@ class TestAgentBehavior(unittest.TestCase):
         self.assertEqual(AgentB.perspective, "B")
 
     def test_legacy_positional_signature(self):
-        # debug2.py calls best_action positionally through time_limit.
+        # tools/debug2.py calls best_action positionally through time_limit.
         action = best_action(
             self.arena, self.arena_board, 50, "A",
             deque(maxlen=6), {}, {}, 0.1,

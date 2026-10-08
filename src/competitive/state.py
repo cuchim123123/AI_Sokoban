@@ -69,7 +69,7 @@ class Board:
             self.distances[start] = distances
 
         # Precompute push distances
-        from src.heuristics.push_distance import precompute_push_costs
+        from src.single.heuristics.push_distance import precompute_push_costs
         self.push_costs = precompute_push_costs(self)
 
         # Precompute EXACT minimum steps (walking + pushing) for a player to deliver a box
@@ -146,7 +146,7 @@ class CompetitiveState:
         "boxes",
         "boxes_on_goals_a", "boxes_on_goals_b",
         "step",
-        "_hash", "board_hash",
+        "_hash",
     )
 
     def __init__(
@@ -164,20 +164,13 @@ class CompetitiveState:
         self.boxes_on_goals_a = frozenset(boxes_on_goals_a)
         self.boxes_on_goals_b = frozenset(boxes_on_goals_b)
         self.step = step
-        # Pre-compute hash for O(1) repeated lookups (used heavily by GBFS visited set)
+        # Pre-compute hash for O(1) repeated lookups (used heavily by search)
         self._hash = hash((
             agent_a, agent_b,
             self.boxes,
             self.boxes_on_goals_a,
             self.boxes_on_goals_b,
             step,
-        ))
-        
-        self.board_hash = hash((
-            agent_a, agent_b,
-            self.boxes,
-            self.boxes_on_goals_a,
-            self.boxes_on_goals_b,
         ))
 
     # ------------------------------------------------------------------

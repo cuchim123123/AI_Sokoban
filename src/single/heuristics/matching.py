@@ -1,6 +1,6 @@
 from typing import Dict, Tuple, List
 from scipy.optimize import linear_sum_assignment
-from src.core.state import GameState, Board
+from src.single.core.state import GameState, Board
 
 class MatchingHeuristic:
     def __init__(self, board: Board, push_costs: Dict[Tuple[int, int], Dict[Tuple[int, int], int]]):
@@ -18,16 +18,7 @@ class MatchingHeuristic:
         for box in boxes:
             row = []
             for goal in self.goals:
-                try:
-                    cost = self.push_costs[goal].get(box, float('inf'))
-                except TypeError:
-                    print(f"CRASH DEBUG:")
-                    print(f"goal: {goal}, type: {type(goal)}")
-                    print(f"self.push_costs: type {type(self.push_costs)}")
-                    val = self.push_costs.get(goal)
-                    print(f"self.push_costs[goal]: {val}, type {type(val)}")
-                    raise
-                row.append(cost)
+                row.append(self.push_costs[goal].get(box, float('inf')))
             cost_matrix.append(row)
             
         # Using scipy's linear_sum_assignment
