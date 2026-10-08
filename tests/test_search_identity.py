@@ -21,11 +21,13 @@ What is pinned here, beyond the behavioral suite in test_competitive.py:
 * root pricing - a scoring push is free, walking toward the pushing side
   is free, retreats and pushes that drag a box away from its goal pay
   AWAY_PENALTY per damaged step, and returning to a just-visited cell pays
-  REVISIT_PENALTY at the root;
+  REVISIT_PENALTY at the root - unless the return restores a cheaper
+  delivery (productive re-entry after the forced departure is free);
 * ranking semantics - a transient optimistic descendant peak can never
-  override the window's verdict (bucket 1 beats bucket 2), and a timed-out
-  window falls back to the one-ply robust values with telemetry reporting
-  window=0;
+  override the window's verdict (bucket 1 beats bucket 2), the window's
+  exact value settles same-bucket roots before the deep term, strike
+  breaks exactly-tied window lines, and a timed-out window falls back to
+  the one-ply robust values with telemetry reporting window=0;
 * race + matching - maximum cardinality (a deliverable box is never
   dropped because another box consumed its only goal - the capacity_lab INF
   artifact that swung the conversion edge by the full clamp), independent
@@ -372,6 +374,50 @@ class TestRootValueAggregation(unittest.TestCase):
         planner.window_rounds = 0
         self.assertEqual(planner._rank_root(), Action.EAST)
 
+    def test_exact_window_margin_beats_deep_peak_within_bucket(self):
+        # Same tactical bucket: the window's OWN exact value settles the
+        # ranking. A 9000 descendant peak on the worse line may only
+        # separate roots the window values EXACTLY equal - below the
+        # bucket quantum the tactical analysis is still never overridable
+        # by optimistic search (was: the deep bucket decided here).
+        board = square_board(goals=((5, 5),))
+        state = CompetitiveState(
+            (3, 3), (5, 1), frozenset({(5, 5)}),
+            frozenset({(5, 5)}), frozenset(), 0,
+        )
+        planner = _Planner(
+            state, board, MAX, "A", time.monotonic() + 1, None, None, None
+        )
+        planner.root_actions = [Action.SOUTH, Action.EAST]
+        planner.window = {Action.SOUTH: -101.0, Action.EAST: -160.0}
+        planner.window_rounds = 3
+        planner.robust = {Action.SOUTH: -101.0, Action.EAST: -50.0}
+        planner.penalties = {Action.SOUTH: 0.0, Action.EAST: 0.0}
+        planner.strikes = {Action.SOUTH: 1, Action.EAST: 1}
+        planner.deep = {Action.SOUTH: -101.0, Action.EAST: 9000.0}
+        self.assertEqual(planner._rank_root(), Action.SOUTH)
+
+    def test_strike_breaks_exact_window_ties_before_deep(self):
+        # Exactly equal window values: step toward the fight (shorter
+        # strike) before consulting the optimistic term - was: the deep
+        # bucket decided exactly-tied window lines.
+        board = square_board(goals=((5, 5),))
+        state = CompetitiveState(
+            (3, 3), (5, 1), frozenset({(5, 5)}),
+            frozenset({(5, 5)}), frozenset(), 0,
+        )
+        planner = _Planner(
+            state, board, MAX, "A", time.monotonic() + 1, None, None, None
+        )
+        planner.root_actions = [Action.SOUTH, Action.EAST]
+        planner.window = {Action.SOUTH: -100.0, Action.EAST: -100.0}
+        planner.window_rounds = 3
+        planner.robust = {Action.SOUTH: -100.0, Action.EAST: -100.0}
+        planner.penalties = {Action.SOUTH: 0.0, Action.EAST: 0.0}
+        planner.strikes = {Action.SOUTH: 5, Action.EAST: 1}
+        planner.deep = {Action.SOUTH: 5000.0, Action.EAST: -100.0}
+        self.assertEqual(planner._rank_root(), Action.EAST)
+
     def test_window_timeout_falls_back_to_robust_and_valid_direction(self):
         board = square_board(goals=((5, 5),))
         state = CompetitiveState(
@@ -407,15 +453,24 @@ class TestRootValueAggregation(unittest.TestCase):
         self.assertIn(action, valid)
 
     def test_structural_stability_ignores_value_creep_inside_buckets(self):
-        # The early-exit comparison: refinement inside a bucket is NOT a
+        # The early-exit comparison: the winner and its FROZEN prefix
+        # (tactical bucket, exact window value, strike = key[:3]) are the
+        # structure. Refinement of the deep term (key 3+) is NOT a
         # ranking change (requiring bit-stability made the exit
-        # unreachable), while a bucket crossing or a winner flip is.
-        winner = (Action.EAST, (-4, -3, 1, -430.0, -410.0, -500.0, 0))
-        crept = (Action.EAST, (-4, -3, 1, -430.0, -399.0, -490.0, 0))
+        # unreachable), while a frozen-tier change or a winner flip is.
+        winner = (Action.EAST, (-4, -430.0, 1, -3, -410.0, -500.0, 0))
+        crept = (Action.EAST, (-4, -430.0, 1, -3, -399.0, -490.0, 0))
         self.assertEqual(_rank_structure(winner), _rank_structure(crept))
-        bucket_crossed = (Action.EAST, (-4, -4, 1, -430.0, -410.0, -500.0, 0))
-        self.assertNotEqual(_rank_structure(winner), _rank_structure(bucket_crossed))
-        winner_changed = (Action.SOUTH, (-4, -3, 1, -430.0, -410.0, -500.0, 0))
+        # A deep-bucket crossing under an already-decided prefix cannot
+        # reorder anything: not structural.
+        deep_crossed = (Action.EAST, (-4, -430.0, 1, -4, -410.0, -500.0, 0))
+        self.assertEqual(_rank_structure(winner), _rank_structure(deep_crossed))
+        # The frozen exact window value moving IS a verdict change.
+        frozen_moved = (Action.EAST, (-4, -400.0, 1, -3, -410.0, -500.0, 0))
+        self.assertNotEqual(
+            _rank_structure(winner), _rank_structure(frozen_moved)
+        )
+        winner_changed = (Action.SOUTH, (-4, -430.0, 1, -3, -410.0, -500.0, 0))
         self.assertNotEqual(_rank_structure(winner), _rank_structure(winner_changed))
 
 
@@ -513,6 +568,35 @@ class TestRootPenalties(unittest.TestCase):
         # And run() actually charges it at the root.
         planner.run()
         self.assertGreaterEqual(planner.penalties[Action.EAST], REVISIT_PENALTY)
+
+    def test_revisit_penalty_is_flat_even_when_return_lowers_delivery_cost(self):
+        # Revisit pricing is FLAT by design, A/B measured on dense_goals:
+        # exempting a return that lowers delivery cost freed the return half
+        # of the horizon-gaming ping-pong (from (5,3) returning home looked
+        # cheaper than advancing into the censored R3 win), and both agents
+        # looped for 40+ steps with 46 refusal flags; the flat 250 broke the
+        # loop (11 flags, A cashes). Both roots that land on just-visited
+        # cells are charged the same, whatever the delivery cost does.
+        board = square_board(goals=((3, 4),))
+        state = CompetitiveState(
+            (1, 3), (5, 1), frozenset({(3, 3)}), frozenset(), frozenset(), 0
+        )
+        probe = self._planner(state, board)
+        child_east, _ = probe._worst_reply(state, Action.EAST)   # -> (2, 3)
+        child_south, _ = probe._worst_reply(state, Action.SOUTH)  # -> (1, 4)
+        planner = _Planner(
+            state, board, MAX, "A", time.monotonic() + 2,
+            deque(
+                [history_entry(child_east, "A"), history_entry(child_south, "A")],
+                maxlen=6,
+            ),
+            None, None,
+        )
+        planner.run()
+        self.assertGreaterEqual(planner.penalties[Action.EAST], REVISIT_PENALTY)
+        self.assertGreaterEqual(
+            planner.penalties[Action.SOUTH], REVISIT_PENALTY
+        )
 
 
 class TestRaceAndMatching(unittest.TestCase):
@@ -714,6 +798,18 @@ class TestEarlyExit(unittest.TestCase):
         p.window[Action.NORTH] = 210.0       # bucket 2 vs EAST's bucket 1
         p.robust[Action.NORTH] = 210.0
         p.deep[Action.NORTH] = 210.0
+        live = {Action.NORTH: [0], Action.EAST: [0], Action.SOUTH: [0]}
+        self.assertTrue(p._exit_decided(live, time.monotonic() + 1.0))
+
+    def test_exact_window_separation_decides_before_gate(self):
+        # Same tactical bucket, different exact window values: the
+        # frozen exact term settles the tie, so live rival frontiers
+        # cannot change the verdict - no gate needed (was: this tie
+        # waited for the gate although its outcome was already frozen).
+        p = self._tied_planner()
+        p.window[Action.NORTH] = 160.0    # bucket 1, same as EAST's 100
+        p.robust[Action.NORTH] = 160.0
+        p.deep[Action.NORTH] = 160.0
         live = {Action.NORTH: [0], Action.EAST: [0], Action.SOUTH: [0]}
         self.assertTrue(p._exit_decided(live, time.monotonic() + 1.0))
 

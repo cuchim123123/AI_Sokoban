@@ -36,13 +36,13 @@ How a decision is made
    and descendant values only grow, so a partial search only refines the
    answer.
 5. Root ranking priority: the tactical-window value decides first
-   (bucketed by TACTICAL_MARGIN - fine enough that any difference the
-   window sees decides), the best GBFS descendant value breaks ties
-   (bucketed by ROBUST_MARGIN), then the child's strike distance to the
-   boxes still in play, then the exact values, finally the fixed action
-   order. Optimistic descendant peaks therefore cannot override the
-   tactical analysis - they only separate roots the window considers
-   equal.
+   (bucketed by TACTICAL_MARGIN, then settled by its own exact value),
+   the child's strike distance to the boxes still in play breaks exact
+   ties, and only then does the best GBFS descendant value
+   (bucketed by ROBUST_MARGIN) act - followed by the remaining exact
+   values and the fixed action order. Optimistic descendant peaks
+   therefore cannot override the tactical analysis: they only separate
+   roots whose window values are exactly equal.
 
 Speed comes from caching, never from thinking shallower:
   * persistent evaluation cache keyed by board identity + configuration +
@@ -101,11 +101,14 @@ from src.competitive.transition import (
 
 TIME_LIMIT = 1.0         # seconds one choose_action call may use
 MAX_DEPTH = 64           # node-depth cap (also bounded by remaining steps)
-ROBUST_MARGIN = 200.0    # quantum of the deep-descendant bucket (2nd key)
-TACTICAL_MARGIN = 100.0  # quantum of the tactical bucket (1st key): finer
-                         # than the deep bucket so a difference the window
-                         # can actually see is never folded into one bucket
-                         # and handed over to an optimistic descendant peak
+ROBUST_MARGIN = 200.0    # quantum of the deep-descendant bucket (4th key: it
+                         # only ever refines roots the window values exactly
+                         # equal - see `_rank_best`)
+TACTICAL_MARGIN = 100.0  # quantum of the tactical bucket (1st key): coarse
+                         # enough to ignore eval noise, fine enough to
+                         # separate verdicts - and the exact window value
+                         # (2nd key) settles whatever this quantum cannot,
+                         # so no optimistic peak ever does
 REVISIT_PENALTY = 250.0  # root penalty for stepping onto a cell just visited
 AWAY_PENALTY = 25.0      # root penalty per step of delivery cost GONE UP:
                          # all eval terms are relative, so two agents wandering
@@ -117,16 +120,16 @@ AWAY_PENALTY = 25.0      # root penalty per step of delivery cost GONE UP:
 FAIR_LAG = 64            # expansions a root may trail the leader before it
                          # is served anyway (keeps valley-crossing lines alive)
 EXIT_STABLE = 300         # pops with the root ranking STRUCTURALLY unchanged
-                          # (same winner, same buckets, same strike) -> stop
-                          # early. A pop evaluates up to 16 children, so the
-                          # real rate is only ~1.5-2 pops/ms: thresholds in
-                          # the thousands need more silence than a 1s budget
-                          # has left after the window and the initial churn
-                          # (measured: never fired within budget). Exact
-                          # values are deliberately NOT compared: deep keeps
-                          # creeping inside its bucket, which is refinement,
-                          # not change - bit-stability made the exit
-                          # unreachable in practice.
+                          # (same winner, same tactical bucket, same exact
+                          # window value, same strike) -> stop early. A pop
+                          # evaluates up to 16 children, so the real rate is
+                          # only ~1.5-2 pops/ms: thresholds in the thousands
+                          # need more silence than a 1s budget has left after
+                          # the window and the initial churn (measured: never
+                          # fired within budget). The deep term (key 4+) is
+                          # deliberately NOT compared: it keeps climbing,
+                          # which is refinement, not change - bit-stability
+                          # on it made the exit unreachable in practice.
 EXIT_STABLE_MS = 0.15     # ...AND at least this much WALL silence, because a
                           # pop count alone is speed-dependent: on tiny boards
                           # 300 pops may be only ~10ms of evidence, which made
@@ -211,24 +214,27 @@ def history_entry(state: CompetitiveState, perspective: str) -> tuple:
 
 def _rank_structure(rank: Tuple[Optional[Action], Optional[tuple]]) -> tuple:
     """
-    Structural skeleton of a `_rank_best` result: winner + its tactical
-    bucket, deep bucket and strike (the first three key components).
+    Structural skeleton of a `_rank_best` result: winner + its first
+    three key components - tactical bucket, exact window value, strike.
 
     The early-exit stability check compares this instead of the full key.
-    Exact values inside a bucket keep creeping while the monotone deep
-    term refines - that is improvement within the same verdict, not a
-    change of verdict, and demanding bit-stability on it made the exit
-    practically unreachable (measured: never fired once within a 1s
-    budget). Roots can only reorder across buckets or on exact ties, so
-    if the winner and its buckets hold for EXIT_STABLE pops, the ranking
-    has structurally settled; a rival crossing a bucket boundary changes
-    the winner or the winner's bucket and resets the counter either way.
+    All three components are FROZEN once the window has completed (the
+    window values and root penalties are fixed before the deep loop
+    starts), so inside that loop this skeleton changes only when the
+    winner flips. The deep term (key 4+) keeps climbing while the
+    monotone search refines it - that is improvement within the same
+    verdict, not a change of verdict: it can only matter when the frozen
+    prefix ties, and then an overtaken winner shows up here as a winner
+    change. Demanding bit-stability on the creeping exact deep values
+    made the exit practically unreachable (measured: never fired once
+    within a 1s budget).
 
-    One case this skeleton cannot certify is a top two SHARING the tactical
-    bucket: the winner then rests on the deep tie-break, whose rival value
-    is still climbing while that root is undersampled. `_exit_decided`
-    gates that case (bucket separation, drained rival, or the bounded tie
-    gate) on top of this stability check.
+    One case this skeleton cannot certify is a top two tying on the
+    whole frozen prefix: the winner then rests on the deep tie-break,
+    whose rival value is still climbing while that root is
+    undersampled. `_exit_decided` gates that case (prefix separation,
+    drained rival, or the bounded tie gate) on top of this stability
+    check.
     """
     action, key = rank
     if key is None:
@@ -531,7 +537,7 @@ class _Planner:
         """Every seeded root as (key, action), best key first.
 
         Key order (see `_rank_best` for what each component means):
-          tactical bucket, deep bucket, strike, exact tactical, exact
+          tactical bucket, exact tactical, strike, deep bucket, exact
         deep, exact robust, fixed action order. Building the whole list -
         not just the leader - lets the early-exit check compare the
         winner's TACTICAL bucket against the runner-up's, which is what
@@ -549,9 +555,9 @@ class _Planner:
             deep = self.deep.get(action, tactical)
             key = (
                 -math.floor(tactical / TACTICAL_MARGIN),
-                -math.floor(deep / ROBUST_MARGIN),
-                self.strikes.get(action, INF),
                 -tactical,
+                self.strikes.get(action, INF),
+                -math.floor(deep / ROBUST_MARGIN),
                 -deep,
                 -self.robust[action],
                 action.value,
@@ -571,17 +577,21 @@ class _Planner:
           1. tactical bucket (TACTICAL_MARGIN): pure-action maximin over
              COMPLETED rounds with root penalties applied; the one-ply
              robust value while no window completed - always a valid
-             fallback. Finer than the deep bucket, so any difference the
-             window can actually see decides before the optimistic term,
-          2. best GBFS descendant bucket (ROBUST_MARGIN) - optimistic and
-             monotone, so it may only separate roots the tactical
-             analysis considers equal; a transient heuristic peak can
-             never override the window's verdict on delayed opponent
-             threats,
+             fallback,
+          2. the exact window value: a difference below the bucket
+             quantum (a 25-point margin, a root penalty that tipped a
+             raw tie) still settles the ranking before any heuristic -
+             optimistic descendant peaks may only separate roots whose
+             window values are EXACTLY equal, so the tactical analysis
+             can never be overridden by them,
           3. the child's strike distance to the boxes still in play
-             (equal lines step toward the fight instead of repeating
-             whichever direction the raw tuple order prefers),
-          4-6. exact window, descendant and robust values, then the fixed
+             (exactly-tied lines step toward the fight instead of
+             repeating whichever direction the raw tuple order prefers),
+          4. best GBFS descendant bucket (ROBUST_MARGIN) - optimistic and
+             monotone, so it only ever refines exact tactical ties; a
+             transient heuristic peak can never override the window's
+             verdict on delayed opponent threats,
+          5-7. exact descendant and robust values, then the fixed
              action order.
         """
         pairs = self._rank_keys()
@@ -611,19 +621,20 @@ class _Planner:
     ) -> bool:
         """May the early exit treat the current winner as final?
 
-        After the window completes, tactical values (window minus root
-        penalties), strikes and robust values are FROZEN; only deep
-        values still climb, and only into a higher bucket (monotone
-        backup). The winner identity is therefore provably settled when:
+        After the window completes, the first THREE key components -
+        tactical bucket, exact window value and strike - are FROZEN;
+        only the deep term (key 4+) still climbs, and only into a higher
+        bucket (monotone backup). The winner identity is therefore
+        provably settled when:
 
-          * its tactical bucket strictly beats every rival's - a frozen,
-            lexicographically dominant key cannot be overtaken by any
-            amount of later deep refinement; or
-          * every rival sharing that bucket has an EMPTY frontier - its
+          * its frozen prefix lexicographically beats every rival's - a
+            frozen, lexicographically dominant prefix cannot be
+            overtaken by any amount of later deep refinement; or
+          * every rival tying that prefix has an EMPTY frontier - its
             deep value can no longer move, while the winner's key either
             stays where it already leads or improves (monotone deep).
 
-        A bucket tie with a live rival cannot be certified however long
+        A prefix tie with a live rival cannot be certified however long
         the structure looks unchanged: that rival may be mid-valley-
         crossing, and one terminal descendant can jump its deep bucket
         past the winner's (the step-14 miss). Such a tie keeps thinking
@@ -634,13 +645,13 @@ class _Planner:
         pairs = self._rank_keys()
         if len(pairs) < 2:
             return True
-        win_bucket = pairs[0][0][0]
+        win_frozen = pairs[0][0][:3]
         for key, action in pairs[1:]:
-            if key[0] > win_bucket:
-                continue          # bucket-separated: cannot overtake
+            if key[:3] > win_frozen:
+                continue          # frozen prefix decides: cannot overtake
             if heaps.get(action):
-                # Same bucket, frontier still live: only the gate settles
-                # this tie (or the rival draining before it).
+                # Tied on everything frozen: only the gate settles this
+                # tie (or the rival draining before it).
                 return time.monotonic() >= tie_gate
         return True
 
@@ -714,14 +725,15 @@ class _Planner:
         # Early exit: with the window fixed after completion and deep
         # values monotone, the ranking is only REFINED, never
         # invalidated. Once the STRUCTURE of the ranking (winner, its
-        # tactical and deep buckets, its strike - key[:3]) has not changed
-        # for EXIT_STABLE pops AND EXIT_STABLE_MS of wall time past the
-        # minimum floors, further thinking is measurably idle: exact
-        # values may still creep inside their buckets, but that cannot
-        # reorder roots across buckets or flip the winner without changing
-        # this structure. That inference is only CERTIFIED when
-        # _exit_decided agrees: bucket-separated on the frozen tactical
-        # key, or every bucket-tied rival drained - a live tie stays open
+        # tactical bucket, exact window value and strike - key[:3], all
+        # frozen) has not changed for EXIT_STABLE pops AND
+        # EXIT_STABLE_MS of wall time past the minimum floors, further
+        # thinking is measurably idle: the deep term may still creep
+        # inside its bucket, but it can only reorder roots on an exact
+        # frozen tie, and then the winner change itself resets this
+        # counter. That inference is only CERTIFIED when
+        # _exit_decided agrees: prefix-separated on the frozen tactical
+        # key, or every prefix-tied rival drained - a live tie stays open
         # until tie_gate, because an undersampled rival's "no change yet"
         # is an artifact of expansion order, not a verdict. Quiet
         # positions - agents far apart, nothing contested - return in a
@@ -732,9 +744,10 @@ class _Planner:
         stable = 0
         last_rank = self._rank_best()
         last_change = time.monotonic()
-        # A bucket-TIED top two is decided by the (still climbing) deep
-        # term, so stability alone cannot certify it: think until at
-        # least this point of the budget before trusting it there.
+        # A top two tying on the whole frozen prefix is decided by the
+        # (still climbing) deep term, so stability alone cannot certify
+        # it: think until at least this point of the budget before
+        # trusting it there.
         tie_gate = t0 + EXIT_TIE_FRACTION * budget
         try:
             while True:
