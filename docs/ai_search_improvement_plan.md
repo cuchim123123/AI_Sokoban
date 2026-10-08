@@ -332,6 +332,74 @@ game now ends **A=1 B=1** with 5/6 scoring roots taken (was A=0 B=3).
 
 ---
 
+### Phase 8: early-exit soundness — a bucket tie keeps thinking (completed)
+
+#### Symptom
+The Phase 6 early exit (structure stability + floors) is what bought the
+latency fix (p50 951 ms → 15–525 ms, misses ~200 → 11), but the
+`--no-exit` ablation scored **19 boxes versus the exit run's 10** with
+identical evaluation: the exit was freezing tie-breaks that further
+search would refine. The visible class is the one-bucket miss — a
+scoring push that leads on the window's *exact* tactical value loses a
+bucket tie to a walk whose optimistic deep value happens to be higher
+(step-14 PROD; capacity step-15 in `record_game.py`).
+
+#### Diagnosis
+
+- `_rank_structure` stability proves the ranking *stopped* changing, not
+  that it *cannot*: a rival mid-valley-crossing is undersampled (GBFS
+  serves it only via `FAIR_LAG`), so "300 pops with no verdict change"
+  can be an artifact of expansion order — one terminal descendant can
+  jump its deep bucket past the winner after the exit fires.
+- What IS provable: after the window completes, tactical values,
+  penalties, strikes and robust values are frozen (all set before the
+  loop); only deep climbs, monotonically. So the winner is final when it
+  is strictly ahead on the frozen tactical bucket, or when every
+  bucket-tied rival has an empty frontier (its deep value can no longer
+  move, and the winner already leads the frozen remainder of the key).
+- `tie_probe.py`: **~50 % of all moves are bucket-tied** (45–54 % per
+  map), so a rule that simply refuses to exit on a tie would hand the
+  full deadline back to half the moves and undo the latency fix. The
+  uncertifiable case therefore needs a *bounded* gate, not a veto.
+
+#### Fix
+`_exit_decided(heaps, tie_gate)` gates the exit on top of the existing
+stability check (`agent_a.py`):
+
+1. bucket-separated on the frozen tactical key → decided (lexicographically
+   dominant `key[0]` cannot be overtaken by any later deep refinement);
+2. every bucket-tied rival drained → decided (frozen keys, winner leads);
+3. live tie → decided only after `EXIT_TIE_FRACTION = 0.60` of the
+   budget (`tie_gate = t0 + 0.60 × budget`): even a fully tied move now
+   stops at 60 % of the budget instead of either ~25 % (old exit) or
+   100 % (deadline).
+
+The ranking itself is untouched; `_rank_best` was factored into
+`_rank_keys()` (identical order — stable sort over the same key — pinned
+by the existing ranking tests) so the check can see the runner-up's
+bucket.
+
+#### Result
+
+- **68 tests green** (5 new: live tie blocks before the gate, gate
+  releases after it, drained rival is decided, bucket separation needs no
+  gate, single root is trivially decided).
+- `record_game.py` A/B on `dense_goals` (same code, `GATE=0.0` = exact
+  pre-change behavior vs `0.6`): **flags 40 → 13, scoring roots taken
+  2 → 4, final A=0 B=0 → A=1 B=0**. `capacity_lab`: final **A=2 B=0**
+  with 6/8 scoring roots taken, flags=2 — both the documented one-bucket
+  class where the deep term trails by ≥ 2 buckets (no amount of thinking
+  within budget flips those; kept as a limitation).
+- Benchmarks (`bench_tiegate.txt`, final shipped code): p50 **17–572 ms**
+  (≈290 ms median), p95 ≤ 1296, misses **44 / 1200 decisions** (3.7 %;
+  baseline 222 = 18.5 %, pre-gate 11 = 0.9 %), boxes scored **10 → 14**
+  (no-exit ceiling 19) — gains on the contested maps (dense 2 → 4,
+  corridors 2 → 4), capacity still cashes all 3 boxes (3/3). The gate is
+  the measured middle of the quality/latency curve; `EXIT_TIE_FRACTION`
+  is the knob.
+
+---
+
 ## 4. Implementation checklist
 
 ### Search structure

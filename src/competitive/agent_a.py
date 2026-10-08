@@ -54,7 +54,11 @@ Speed comes from caching, never from thinking shallower:
     pops and EXIT_STABLE_MS of wall time means further thinking is idle -
     quiet positions return in a few hundred ms instead of always burning
     the full budget (the monotonic deadline stays the hard cap; early
-    exit can only undercut it).
+    exit can only undercut it). The stability evidence is only SOUND when
+    the winner is provably final: strictly ahead on the frozen tactical
+    bucket, every bucket-tied rival's frontier exhausted, or the tie has
+    had its bounded share of the budget (EXIT_TIE_FRACTION) - see
+    `_exit_decided`.
 
 Hard tactical constraints (never traded away for heuristic points):
   * never WAIT while a legal move exists,
@@ -134,6 +138,20 @@ EXIT_STABLE_MS = 0.15     # ...AND at least this much WALL silence, because a
 EXIT_MIN_NODES = 2000    # never stop early before this many evaluated
                          # children (window + seeding included)
 EXIT_MIN_DEPTH = 4       # ...nor before the deepest line reached this depth
+EXIT_TIE_FRACTION = 0.60 # ...and, while the top two SHARE the tactical
+                         # bucket, not before this share of the budget is
+                         # spent. Structure stability alone cannot prove a
+                         # bucket TIE settled: the tie is decided by the
+                         # optimistic deep term, a rival's deep value can
+                         # jump buckets in a single pop (a terminal
+                         # descendant), and while that root's frontier is
+                         # undersampled "unchanged for 300 pops" is an
+                         # artifact of expansion order - which is exactly
+                         # how a ranking frozen the step-14 scoring push.
+                         # Measured (tie_probe.py): ~50% of moves are
+                         # bucket-tied, so a tie rule without a time gate
+                         # would hand the full deadline back to half the
+                         # moves; the gate keeps even those at 40% saved.
 WINDOW_ROUNDS = 2        # complete simultaneous rounds the root window searches
 WINDOW_EXTRA_ROUNDS = 1  # extra rounds attempted only while they are cheap
 WINDOW_BUDGET = 0.35     # share of the remaining budget the window may use
@@ -205,6 +223,12 @@ def _rank_structure(rank: Tuple[Optional[Action], Optional[tuple]]) -> tuple:
     if the winner and its buckets hold for EXIT_STABLE pops, the ranking
     has structurally settled; a rival crossing a bucket boundary changes
     the winner or the winner's bucket and resets the counter either way.
+
+    One case this skeleton cannot certify is a top two SHARING the tactical
+    bucket: the winner then rests on the deep tie-break, whose rival value
+    is still climbing while that root is undersampled. `_exit_decided`
+    gates that case (bucket separation, drained rival, or the bounded tie
+    gate) on top of this stability check.
     """
     action, key = rank
     if key is None:
@@ -503,6 +527,39 @@ class _Planner:
 
     # ── root ranking (docs Phase 3) ─────────────────────────────────────
 
+    def _rank_keys(self) -> List[Tuple[tuple, Action]]:
+        """Every seeded root as (key, action), best key first.
+
+        Key order (see `_rank_best` for what each component means):
+          tactical bucket, deep bucket, strike, exact tactical, exact
+        deep, exact robust, fixed action order. Building the whole list -
+        not just the leader - lets the early-exit check compare the
+        winner's TACTICAL bucket against the runner-up's, which is what
+        proves (or disproves) that the winner identity can no longer
+        change.
+        """
+        pairs: List[Tuple[tuple, Action]] = []
+        for action in self.root_actions:
+            if action not in self.robust:
+                continue
+            if self.window is not None and action in self.window:
+                tactical = self.window[action] - self.penalties.get(action, 0.0)
+            else:
+                tactical = self.robust[action]   # already penalized
+            deep = self.deep.get(action, tactical)
+            key = (
+                -math.floor(tactical / TACTICAL_MARGIN),
+                -math.floor(deep / ROBUST_MARGIN),
+                self.strikes.get(action, INF),
+                -tactical,
+                -deep,
+                -self.robust[action],
+                action.value,
+            )
+            pairs.append((key, action))
+        pairs.sort(key=lambda pair: pair[0])
+        return pairs
+
     def _rank_best(self) -> Tuple[Optional[Action], Optional[tuple]]:
         """Winning (action, key) of the current root ranking, or
         (None, None) if nothing was seeded. The ranking is the BACKUP
@@ -527,28 +584,10 @@ class _Planner:
           4-6. exact window, descendant and robust values, then the fixed
              action order.
         """
-        best: Optional[Action] = None
-        best_key: Optional[tuple] = None
-        for action in self.root_actions:
-            if action not in self.robust:
-                continue
-            if self.window is not None and action in self.window:
-                tactical = self.window[action] - self.penalties.get(action, 0.0)
-            else:
-                tactical = self.robust[action]   # already penalized
-            deep = self.deep.get(action, tactical)
-            key = (
-                -math.floor(tactical / TACTICAL_MARGIN),
-                -math.floor(deep / ROBUST_MARGIN),
-                self.strikes.get(action, INF),
-                -tactical,
-                -deep,
-                -self.robust[action],
-                action.value,
-            )
-            if best_key is None or key < best_key:
-                best_key, best = key, action
-        return best, best_key
+        pairs = self._rank_keys()
+        if not pairs:
+            return None, None
+        return pairs[0][1], pairs[0][0]
 
     def _rank_root(self) -> Action:
         """Best root action under the ranking in `_rank_best`.
@@ -566,6 +605,44 @@ class _Planner:
         if best is not None:
             return best
         return self.root_actions[0] if self.root_actions else Action.WAIT
+
+    def _exit_decided(
+        self, heaps: Dict[Action, List[tuple]], tie_gate: float
+    ) -> bool:
+        """May the early exit treat the current winner as final?
+
+        After the window completes, tactical values (window minus root
+        penalties), strikes and robust values are FROZEN; only deep
+        values still climb, and only into a higher bucket (monotone
+        backup). The winner identity is therefore provably settled when:
+
+          * its tactical bucket strictly beats every rival's - a frozen,
+            lexicographically dominant key cannot be overtaken by any
+            amount of later deep refinement; or
+          * every rival sharing that bucket has an EMPTY frontier - its
+            deep value can no longer move, while the winner's key either
+            stays where it already leads or improves (monotone deep).
+
+        A bucket tie with a live rival cannot be certified however long
+        the structure looks unchanged: that rival may be mid-valley-
+        crossing, and one terminal descendant can jump its deep bucket
+        past the winner's (the step-14 miss). Such a tie keeps thinking
+        until `tie_gate` - a bounded share of the budget, because ~half
+        of all moves are bucket-tied (probe: tie_probe.py) and an
+        ungated rule would hand the full deadline back to half the moves.
+        """
+        pairs = self._rank_keys()
+        if len(pairs) < 2:
+            return True
+        win_bucket = pairs[0][0][0]
+        for key, action in pairs[1:]:
+            if key[0] > win_bucket:
+                continue          # bucket-separated: cannot overtake
+            if heaps.get(action):
+                # Same bucket, frontier still live: only the gate settles
+                # this tie (or the rival draining before it).
+                return time.monotonic() >= tie_gate
+        return True
 
     # ── search loop ─────────────────────────────────────────────────────
 
@@ -642,15 +719,23 @@ class _Planner:
         # minimum floors, further thinking is measurably idle: exact
         # values may still creep inside their buckets, but that cannot
         # reorder roots across buckets or flip the winner without changing
-        # this structure. Quiet positions - agents far apart, nothing
-        # contested - return in a few hundred ms instead of burning the
-        # full budget, while positions whose bucket structure keeps
-        # improving reset both counters and search to the deadline. The
-        # deadline check stays monotonic; early exit can only undercut
-        # it, never exceed it.
+        # this structure. That inference is only CERTIFIED when
+        # _exit_decided agrees: bucket-separated on the frozen tactical
+        # key, or every bucket-tied rival drained - a live tie stays open
+        # until tie_gate, because an undersampled rival's "no change yet"
+        # is an artifact of expansion order, not a verdict. Quiet
+        # positions - agents far apart, nothing contested - return in a
+        # few hundred ms instead of burning the full budget, while
+        # positions whose bucket structure keeps improving reset both
+        # counters and search to the deadline. The deadline check stays
+        # monotonic; early exit can only undercut it, never exceed it.
         stable = 0
         last_rank = self._rank_best()
         last_change = time.monotonic()
+        # A bucket-TIED top two is decided by the (still climbing) deep
+        # term, so stability alone cannot certify it: think until at
+        # least this point of the budget before trusting it there.
+        tie_gate = t0 + EXIT_TIE_FRACTION * budget
         try:
             while True:
                 if time.monotonic() >= self.deadline:
@@ -702,8 +787,9 @@ class _Planner:
                         and time.monotonic() - last_change >= EXIT_STABLE_MS
                         and self.nodes >= EXIT_MIN_NODES
                         and self.final_depth >= EXIT_MIN_DEPTH
+                        and self._exit_decided(heaps, tie_gate)
                     ):
-                        break               # ranking settled: stop early
+                        break               # winner certified: stop early
                 else:
                     last_rank = rank_now
                     stable = 0

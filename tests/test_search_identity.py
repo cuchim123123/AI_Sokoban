@@ -668,6 +668,63 @@ class TestEarlyExit(unittest.TestCase):
         wall = time.monotonic() - started
         self.assertLessEqual(wall, 0.4 + 0.15)  # limit + scheduling slack
 
+    # ── _exit_decided: when is the current winner provably final? ──────
+
+    @staticmethod
+    def _tied_planner():
+        """Planner whose top two SHARE the tactical bucket: NORTH and
+        EAST both sit at bucket 1 (100/100), SOUTH trails a bucket."""
+        state, board = parse_competitive_map("maps/competitive/capacity_lab.txt")
+        p = _Planner(
+            state, board, MAX, "A", time.monotonic() + 1.0, None, None, None
+        )
+        p.root_actions = [Action.NORTH, Action.EAST, Action.SOUTH]
+        p.window = {Action.NORTH: 100.0, Action.EAST: 100.0, Action.SOUTH: 20.0}
+        p.robust = dict(p.window)
+        p.deep = dict(p.window)
+        return p
+
+    def test_live_bucket_tie_blocks_exit_before_gate(self):
+        # Tied top two, rival frontier still live: the deep tie-break is
+        # an unexplored frontier, not a verdict - keep thinking.
+        p = self._tied_planner()
+        live = {Action.NORTH: [0], Action.EAST: [0], Action.SOUTH: [0]}
+        self.assertFalse(p._exit_decided(live, time.monotonic() + 1.0))
+
+    def test_tie_gate_releases_after_budget_share(self):
+        # The same tie once the bounded gate has passed: exit allowed
+        # (latency cap - a tie may not burn the whole deadline).
+        p = self._tied_planner()
+        live = {Action.NORTH: [0], Action.EAST: [0], Action.SOUTH: [0]}
+        self.assertTrue(p._exit_decided(live, time.monotonic() - 1.0))
+
+    def test_drained_tied_rival_is_decided_before_gate(self):
+        # Tied rival with an EMPTY frontier can no longer move its deep
+        # value, and the winner already leads the frozen remainder of
+        # the key - provably final, no gate needed.
+        p = self._tied_planner()
+        drained = {Action.NORTH: [0], Action.EAST: [], Action.SOUTH: [0]}
+        self.assertTrue(p._exit_decided(drained, time.monotonic() + 1.0))
+
+    def test_bucket_separated_exit_needs_no_gate(self):
+        # Winner strictly ahead on the FROZEN tactical key: no amount of
+        # later deep refinement can overtake a lexicographically
+        # dominant key0, so live rivals don't matter.
+        p = self._tied_planner()
+        p.window[Action.NORTH] = 210.0       # bucket 2 vs EAST's bucket 1
+        p.robust[Action.NORTH] = 210.0
+        p.deep[Action.NORTH] = 210.0
+        live = {Action.NORTH: [0], Action.EAST: [0], Action.SOUTH: [0]}
+        self.assertTrue(p._exit_decided(live, time.monotonic() + 1.0))
+
+    def test_single_root_is_trivially_decided(self):
+        # Nothing that could overtake exists.
+        p = self._tied_planner()
+        p.root_actions = [Action.NORTH]
+        self.assertTrue(
+            p._exit_decided({Action.NORTH: [0]}, time.monotonic() + 1.0)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

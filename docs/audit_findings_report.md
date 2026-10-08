@@ -1,6 +1,6 @@
 # Competitive AI audit — findings, fixes, and benchmarks
 
-Status: complete (all three benchmark configurations run).
+Status: complete (baseline, final code, and three variants benchmarked).
 
 Scope: `src/competitive/{agent_a,agent_b,evaluation,state,transition}.py`
 under the standing engine constraints — GBFS stays the expansion engine,
@@ -39,7 +39,21 @@ Two playtest complaints were reproduced, root-caused, and fixed:
    scoring roots taken, and the benchmark's capacity games now end
    **2:1 with all 3 boxes cashed** (baseline: 0:1 and 0:0).
 
-63 tests green throughout (41 original + 22 new in
+3. **Soundness follow-up on the latency fix.** The exit was certifying
+   *unfinished* tie-breaks: on ~50 % of moves the top two share the
+   tactical bucket, and the winner then rests on the optimistic deep term,
+   whose rival value is still climbing while that root is undersampled
+   (the `--no-exit` ablation's 19-vs-10 box gap is the cost of firing
+   anyway). `_exit_decided` now certifies the winner — strictly ahead on
+   the *frozen* tactical bucket, or with every bucket-tied rival's
+   frontier drained — and grants a live tie only a bounded
+   `EXIT_TIE_FRACTION = 0.60` share of the budget. Dense A/B (gate 0 →
+   0.6, same code): flags 40 → 13, scoring roots taken 2 → 4. Final
+   benchmark: p50 **17–572 ms** with 44 misses (baseline ~222, pre-gate
+   11) and boxes scored **10 → 14** — part of the no-exit quality gap
+   (19) recovered at a bounded, measured latency cost.
+
+68 tests green throughout (41 original + 27 new in
 `tests/test_search_identity.py`).
 
 ---
@@ -52,8 +66,9 @@ Two playtest complaints were reproduced, root-caused, and fixed:
 |---|---------|----------------|--------|
 | A1 | `EXIT_STABLE = 4000` pops unreachable: pop rate ≈1.5–2/ms ⇒ ~3500 pops in a 1 s budget, so agents always ran the deadline. | bug (dead code path) | fixed |
 | A2 | Exit comparison used the full `-deep` value, which creeps monotonically → structural stability never registered even when reached. | bug (wrong comparison key) | fixed |
-| A3 | Fix: `EXIT_STABLE = 300` pops **and** `EXIT_STABLE_MS = 0.15` s wall silence (both required), compared on `_rank_structure` (winner + bucket keys), above `EXIT_MIN_NODES = 2000` / `EXIT_MIN_DEPTH = 4` floors. | fix | verified (bench, ablation row *pending*) |
+| A3 | Fix: `EXIT_STABLE = 300` pops **and** `EXIT_STABLE_MS = 0.15` s wall silence (both required), compared on `_rank_structure` (winner + bucket keys), above `EXIT_MIN_NODES = 2000` / `EXIT_MIN_DEPTH = 4` floors. | fix | verified (bench + ablations below) |
 | A4 | All deadlines moved to `time.monotonic()` (perf-counter affine, immune to clock adjustment). | hardening | fixed |
+| A5 | The stability exit could fire on an *unfinished tie-break*: with the top two sharing the tactical bucket, the winner rests on the optimistic deep term, and an undersampled rival's "no change for 300 pops" is an artifact of expansion order (the `--no-exit` ablation's 19-vs-10 box gap is the cost). Probe `tie_probe.py`: **~50 % of moves are bucket-tied** (45–54 %/map), so a veto on ties would return to the baseline burn. | soundness gap (exit vs partial-search consistency) | fixed: `_exit_decided` certifies bucket-separation on the frozen tactical key or a drained rival; a live tie waits for `EXIT_TIE_FRACTION = 0.60` of the budget — 68 tests, dense A/B (GATE 0→0.6): flags 40→13 |
 
 ### B. Play quality / the value of a point (`evaluation.py`)
 
@@ -121,7 +136,8 @@ Identity across rounds (C1), odd/even priority, transient peak vs window
 checked alternatives, detours/oscillation, four-direction submissions,
 deadline behavior, exhaustive reference on tiny boards, pure-action
 maximin vs mixed strategies, zero-sum and label symmetry for the new steal
-bounds (B1). All pass together with the original 41 → **63 green**.
+bounds (B1), and the early-exit certificate (bucket separation / drained
+rival / tie gate, A5). All pass together with the original 41 → **68 green**.
 
 ---
 
@@ -131,21 +147,22 @@ Same harness (`bench.py`), 5 maps × 2 assignments (original + horizontal
 mirror with roles A↔C swapped), TIME = 1.0 s/move, ≤ 60 steps,
 wall-clock latency per decision.
 
-### Latency (all 10 games)
+### Latency (all 10 games, 1200 agent-decisions)
 
-| metric | baseline (pre-audit) | corrected |
-|---|---|---|
-| p50 / move | **951–953 ms, every game** | **15–525 ms** (≈220 ms median) |
-| p95 / move | 1368–2465 ms | 412–1128 ms |
-| max / move | 1506–**3180 ms** | 460–1339 ms |
-| deadline misses (>1 s) | 6–22 per game per agent (~140 total) | **11 total** (9 of them dense-mirror) |
-### Ablations (same harness, corrected code)
+| metric | baseline (pre-audit) | corrected (Phase 6–7) | **final** (+ tie gate, Phase 8) |
+|---|---|---|---|
+| p50 / move | **951–953 ms, every game** | **15–525 ms** (≈220 ms median) | **17–572 ms** (≈290 ms median) |
+| p95 / move | 1368–2465 ms | 412–1128 ms | 580–1296 ms |
+| max / move | 1506–**3180 ms** | 460–1339 ms | 758–1696 ms |
+| deadline misses (>1 s) | 6–22 per game per agent (~222 total) | **11 total** (9 of them dense-mirror) | **44 total** (3.7 % of decisions) |
+### Ablations (same harness; the two ablations ran on the pre-gate code — they are what motivated it)
 
 | config | p50 / move | misses (>1 s) | boxes scored (sum of 10 games) |
 |---|---|---|---|
 | corrected (exit + window) | 15–525 ms | **11** | 10 |
 | `--no-exit` (window kept) | **951–954 ms** on 8 games (test_race orig terminates naturally at 15–38 ms; its mirror 860–939) | **209** | 19 |
 | `--no-window` (exit kept) | 20–738 ms (p95 up to 1656) | **70** | 10 |
+| **final: + tie gate 0.60 (shipped)** | 17–572 ms | 44 | **14** |
 
 Reading: the early exit is what bought the latency — without it the
 corrected agents return to the baseline burn (p50 ≈953 ms, ~200 misses
@@ -161,6 +178,16 @@ and noisy; the honest summary is that latency and search depth are the
 traded goods, and `EXIT_STABLE` / `EXIT_STABLE_MS` are the knobs if a
 different point on that curve is wanted.
 
+The shipped tie gate is the measured middle of exactly that curve.
+`tie_probe.py` found **~50 % of moves are bucket-tied**, so the old exit
+was freezing half its decisions on a tie-break it could not certify;
+granting those moves `EXIT_TIE_FRACTION = 0.60` of the budget recovered
+4 of the no-exit run's 9 extra boxes (**10 → 14**, concentrated where the
+fight is: dense 2 → 4, corridors 2 → 4) at the cost of misses rising
+11 → 44 — still **5× below baseline** (3.7 % vs 18.5 % of decisions) and
+with p50 within the same order of magnitude. `EXIT_TIE_FRACTION` moves
+along that curve; the pre-gate and no-exit rows bound it.
+
 The window's *tactical* value is established by the instrumented traces
 and tests rather than these totals: it is the oracle that refused the
 −818 score (B1), and after the fix it ranks the score +388 over the walk
@@ -169,17 +196,19 @@ pins that hierarchy.
 
 ### Scores / boxes (single game per cell; treat as indicative)
 
-| map | baseline | corrected |
-|---|---|---|
-| arena_open | 1:1 (2/2), 1:1 (2/2) | 1:0 (1/2), 1:0 (1/2) |
-| capacity_lab (**repro**) | 0:1 (1/3), 0:0 (0/3) | **2:1 (3/3)**, 1:1 (1/3) |
-| dense_goals | 0:0 (0/5), 2:0 (2/5) | 0:1 (1/5), 0:1 (1/5) |
-| corridors | 1:1 (2/3), 1:1 (2/3) | 1:0 (1/3), 1:0 (1/3) |
-| test_race | 0:0 (0/1), 1:0 (0/1) | 0:0 (0/1), 1:0 (0/1) |
+| map | baseline | corrected | **final (tie gate)** |
+|---|---|---|---|
+| arena_open | 1:1 (2/2), 1:1 (2/2) | 1:0 (1/2), 1:0 (1/2) | 1:0 (1/2), 1:0 (1/2) |
+| capacity_lab (**repro**) | 0:1 (1/3), 0:0 (0/3) | 2:1 (3/3), 1:1 (1/3) | **1:2 (3/3)**, 2:0 (1/3) |
+| dense_goals | 0:0 (0/5), 2:0 (2/5) | 0:1 (1/5), 0:1 (1/5) | **1:1 (2/5), 1:1 (2/5)** |
+| corridors | 1:1 (2/3), 1:1 (2/3) | 1:0 (1/3), 1:0 (1/3) | **1:1 (2/3), 1:1 (2/3)** |
+| test_race | 0:0 (0/1), 1:0 (0/1) | 0:0 (0/1), 1:0 (0/1) | 0:0 (0/1), 1:0 (0/1) |
 
 Per-map box totals are noisy at one game per cell (single-game
-variance acknowledged); the repro map is the clear structural win
-(A shut out in baseline, 3/3 boxes and a 2:1 win corrected).
+variance acknowledged); the repro map remains the structural showpiece
+— baseline cashed at most 1 of 3 boxes, every corrected run cashes all
+3 — and the contested maps (dense, corridors) are where the tie gate's
+extra thinking pays (+2 boxes each vs the pre-gate code).
 
 ### Instrumented play (flags: a SCORE/PROD push existed but wasn't chosen)
 
