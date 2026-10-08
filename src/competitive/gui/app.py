@@ -11,7 +11,9 @@ import threading
 
 from src.competitive.state import Board, CompetitiveState, Action
 from src.competitive.parser import parse_competitive_map
-from src.competitive.transition import resolve_joint_action_outcome, get_valid_actions
+from src.competitive.transition import (
+    resolve_joint_action_outcome, get_valid_actions, conflict_winner,
+)
 from src.competitive.agent_a import AgentA
 from src.competitive.agent_b import AgentB
 
@@ -114,6 +116,11 @@ class CompetitiveApp:
         self.screen_shake = 0
         self.particles = []
         self.floating_texts = []
+
+        # Conflict-advantage UI: per-step priority winner (UI display
+        # only - never fed back into search or scoring).
+        self.step_conflicts = {}
+        self.conflict_badge = None
         
         # Threading state
         self.computing = False
@@ -195,6 +202,8 @@ class CompetitiveApp:
         self.screen_shake = 0
         self.particles = []
         self.floating_texts = []
+        self.step_conflicts = {}
+        self.conflict_badge = None
         
         self.computing = False
         self.pending_out = None
@@ -415,6 +424,23 @@ class CompetitiveApp:
         self.prev_state = self.state
         self.state = out.state
         self.anim_t = 0.0
+
+        # Conflict bookkeeping (UI display only): record which side held
+        # parity priority for the round that just resolved, keyed by the
+        # resulting state's step so history scrubbing stays consistent.
+        # Drop stale entries from an abandoned timeline when branching.
+        self.step_conflicts = {
+            k: v for k, v in self.step_conflicts.items() if k <= self.state.step
+        }
+        self.conflict_badge = None
+        if out.conflict:
+            winner = conflict_winner(self.max_steps, step_idx)
+            self.step_conflicts[self.state.step] = winner
+            wcell = self.state.agent_a if winner == "A" else self.state.agent_b
+            self.conflict_badge = {
+                "cell": wcell, "winner": winner,
+                "life": 80, "max_life": 80,
+            }
 
         new_box_owners = {}
         
@@ -646,6 +672,27 @@ class CompetitiveApp:
         self._draw_agent_anim("A", self.prev_state.agent_a, self.state.agent_a, t, offset_x, offset_y, C_AGENT_A)
         self._draw_agent_anim("B", self.prev_state.agent_b, self.state.agent_b, t, offset_x, offset_y, C_AGENT_B)
 
+        # Conflict-advantage badge: floats up over the priority winner of
+        # the last conflicting round and fades out (~1.3s).
+        if self.conflict_badge:
+            b = self.conflict_badge
+            col = C_AGENT_A if b["winner"] == "A" else C_AGENT_B
+            label = f"{b['winner']} WINS CONFLICT"
+            rise = (b["max_life"] - b["life"]) * 0.4
+            cx = offset_x + b["cell"][0] * TILE + TILE // 2
+            cy = max(12, offset_y + b["cell"][1] * TILE - 14 - rise)
+            alpha = int(255 * b["life"] / b["max_life"])
+            for text, color, dx, dy in (
+                (label, (0, 0, 0), 1, 1),
+                (label, col, 0, 0),
+            ):
+                s = self.font_md.render(text, True, color)
+                s.set_alpha(alpha)
+                self.screen.blit(s, s.get_rect(center=(cx + dx, cy + dy)))
+            b["life"] -= 1
+            if b["life"] <= 0:
+                self.conflict_badge = None
+
     def _draw_agent_anim(self, label, prev_pos, next_pos, t, ox, oy, color):
         ax, ay = lerp_pos(prev_pos, next_pos, t)
         px, py = ox + ax * TILE, oy + ay * TILE
@@ -706,7 +753,8 @@ class CompetitiveApp:
 
         score_txt_a = self.font_lg.render(f"Agent A: {state.score_a()}", True, C_AGENT_A)
         score_txt_b = self.font_lg.render(f"Agent B: {state.score_b()}", True, C_AGENT_B)
-        step_txt    = self.font_lg.render(f"Step {state.step} / {self.max_steps}", True, C_TEXT)
+        remaining = max(0, self.max_steps - state.step)
+        step_txt    = self.font_lg.render(f"Steps Left: {remaining}", True, C_TEXT)
         
         self.screen.blit(score_txt_a, (30, ui_top + 15))
         self.screen.blit(score_txt_b, (30 + score_txt_a.get_width() + 40, ui_top + 15))
@@ -721,6 +769,17 @@ class CompetitiveApp:
                 True, C_TEXT_DIM
             )
             self.screen.blit(last_txt, (30, ui_top + 55))
+
+            # Who held conflict priority for the displayed round (UI only)
+            winner = self.step_conflicts.get(state.step)
+            if winner is not None:
+                conf_txt = self.font_md.render(
+                    f"| CONFLICT: {winner} had priority", True,
+                    C_AGENT_A if winner == "A" else C_AGENT_B,
+                )
+                self.screen.blit(
+                    conf_txt, (30 + last_txt.get_width() + 20, ui_top + 55)
+                )
 
         if not self.running and not self.finished:
             ctrl = self.font_sm.render("SPACE=start | [ , ]=scrub | R=restart | M=menu", True, C_TEXT_DIM)
