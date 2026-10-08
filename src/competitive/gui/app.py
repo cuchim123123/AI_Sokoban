@@ -626,20 +626,21 @@ class CompetitiveApp:
             px = offset_x + vx * TILE
             py = offset_y + vy * TILE
             
-            owner = self.box_owners.get(dest)
-            img = self.img_box
-            if owner == "A":
-                img = self.img_box_a
-            elif owner == "B":
-                img = self.img_box_b
-                
+            # Off-goal boxes are ALWAYS neutral: color is decided purely
+            # by whether this box currently sits on a goal (credited or
+            # not), so pushing a box away drops it straight back to the
+            # neutral sprite.  (Owner-based tinting used the same crate
+            # sprites as the "done" colors, so a pushed box never
+            # reverted.)
             if dest in self.state.boxes_on_goals_a:
                 img = self.img_box_done_a
             elif dest in self.state.boxes_on_goals_b:
                 img = self.img_box_done_b
             elif dest in board.goals:
-                img = self.img_box_done_a 
-                
+                img = self.img_box_done_a
+            else:
+                img = self.img_box
+
             self.screen.blit(img, (px, py))
 
         self._draw_agent_anim("A", self.prev_state.agent_a, self.state.agent_a, t, offset_x, offset_y, C_AGENT_A)
