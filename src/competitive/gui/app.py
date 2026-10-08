@@ -11,7 +11,7 @@ import threading
 
 from src.competitive.state import Board, CompetitiveState, Action
 from src.competitive.parser import parse_competitive_map
-from src.competitive.transition import resolve_joint_action_outcome
+from src.competitive.transition import resolve_joint_action_outcome, get_valid_actions
 from src.competitive.agent_a import AgentA
 from src.competitive.agent_b import AgentB
 
@@ -311,20 +311,36 @@ class CompetitiveApp:
                             elif event.key == pygame.K_s: self.pending_human_a = Action.SOUTH
                             elif event.key == pygame.K_a: self.pending_human_a = Action.WEST
                             elif event.key == pygame.K_d: self.pending_human_a = Action.EAST
-                            elif event.key == pygame.K_LSHIFT: self.pending_human_a = Action.WAIT
                         
                         if self.agent_b is None:
                             if event.key == pygame.K_UP: self.pending_human_b = Action.NORTH
                             elif event.key == pygame.K_DOWN: self.pending_human_b = Action.SOUTH
                             elif event.key == pygame.K_LEFT: self.pending_human_b = Action.WEST
                             elif event.key == pygame.K_RIGHT: self.pending_human_b = Action.EAST
-                            elif event.key == pygame.K_RSHIFT: self.pending_human_b = Action.WAIT
+
+                        for who in ("a", "b"):
+                            pos = self.state.agent_a if who == "a" else self.state.agent_b
+                            other = self.state.agent_b if who == "a" else self.state.agent_a
+                            legal = get_valid_actions(pos, other, self.state.boxes, self.board)
+                            pending = getattr(self, "pending_human_" + who)
+                            if not legal and getattr(self, "agent_" + who) is None:
+                                setattr(self, "pending_human_" + who, Action.WAIT)
+                            elif pending is not None and pending not in legal:
+                                setattr(self, "pending_human_" + who, None)
 
     def _compute_step(self):
         if self.state.is_terminal(self.max_steps):
             self.pending_out = "TERMINAL"
             return
             
+        # No key submission is possible for a physically boxed-in human.
+        for who in ("a", "b"):
+            if getattr(self, "agent_" + who) is None:
+                pos = self.state.agent_a if who == "a" else self.state.agent_b
+                other = self.state.agent_b if who == "a" else self.state.agent_a
+                if not get_valid_actions(pos, other, self.state.boxes, self.board):
+                    setattr(self, "pending_human_" + who, Action.WAIT)
+
         expected_step = self.state.step
 
         t0 = time.time()
@@ -344,7 +360,32 @@ class CompetitiveApp:
         action_a = action_a if self.agent_a else self.pending_human_a
         action_b = action_b if self.agent_b else self.pending_human_b
 
-        out = resolve_joint_action_outcome(self.state, action_a, action_b, self.board, self.max_steps)
+        # Rule 3: submit each AGENT's preference list for this round, the
+        # chosen action pinned first - the exact root list the search
+        # ranked with. Human sides (or agents without the method) submit
+        # no list and fall back to the shared starting-state preference policy.
+        prefs_a = (
+            self.agent_a.preference_list(
+                self.state, self.board, self.max_steps, primary=action_a
+            )
+            if self.agent_a is not None and hasattr(
+                self.agent_a, "preference_list"
+            )
+            else None
+        )
+        prefs_b = (
+            self.agent_b.preference_list(
+                self.state, self.board, self.max_steps, primary=action_b
+            )
+            if self.agent_b is not None and hasattr(
+                self.agent_b, "preference_list"
+            )
+            else None
+        )
+        out = resolve_joint_action_outcome(
+            self.state, action_a, action_b, self.board, self.max_steps,
+            prefs_a=prefs_a, prefs_b=prefs_b,
+        )
         self.pending_out = (expected_step, action_a, action_b, out, dt_a, dt_b)
 
     def _apply_computed_step(self):

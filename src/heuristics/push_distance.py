@@ -30,7 +30,9 @@ def precompute_push_costs(board: Board) -> Dict[Tuple[int, int], Dict[Tuple[int,
                 player_y = cy - 2*dy
                 player_pos = (player_x, player_y)
                 
-                if prev_box not in board.walls and player_pos not in board.walls:
+                if (0 <= prev_box_x < board.width and 0 <= prev_box_y < board.height
+                        and 0 <= player_x < board.width and 0 <= player_y < board.height
+                        and prev_box not in board.walls and player_pos not in board.walls):
                     if prev_box not in goal_costs:
                         goal_costs[prev_box] = goal_costs[curr_pos] + 1
                         queue.append(prev_box)

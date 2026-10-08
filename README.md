@@ -61,3 +61,22 @@ python src/experiments/verify_heuristic.py maps/benchmark_2.txt
 - `src/search/`: Search algorithms (UCS, A*).
 - `src/experiments/`: Evaluation scripts.
 - `src/gui/`: Pygame application.
+
+## Competitive simultaneous mode
+
+Run `py -3.11 main.py competitive maps/competitive/arena_open.txt 50` on
+Windows (or use a Python installation with `requirements.txt` installed).
+Both agents choose from the same starting state and resolve one joint round.
+The AI uses iterative-deepening pure-action maximin with a one-second decision
+budget and the same fallback policy as live execution. Human inputs are WASD
+and arrow keys; WAIT is only a forced-immobility outcome.
+
+See [the current AI rewrite report](docs/competitive_rewrite.md) for rules,
+search approximations, validation and measured comparisons. Earlier audit
+and optimization documents describe previous implementations; their GBFS,
+alternating-turn and hard-filter proposals do not describe the current AI.
+
+Run all tests with `python -m unittest discover -s tests`. Run
+`python debug2.py` to print root values, completed horizons, fallbacks and
+executed outcomes for a fixed decision. The benchmark command is
+`python -m src.experiments.competitive_benchmark --help`.

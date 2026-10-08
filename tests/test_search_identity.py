@@ -1,111 +1,48 @@
+"""Independent exhaustive backups, deadline atomicity and rule regressions.
+
+Replaces tests tied to removed GBFS buckets, peak transfer, hard filters and
+forced-event extensions. Rule and state-identity coverage remains intact.
 """
-White-box regression tests for search identity, the tactical window, and
-the gates around the two hard push filters (evaluation.py's `_min_delivery`
-section references this file).
-
-What is pinned here, beyond the behavioral suite in test_competitive.py:
-
-* state identity - the closed set and both caches key on configuration AND
-  round (step) and are scoped to their board: the same position at a
-  different round has different remaining time and (when the parity flips)
-  the OPPOSITE conflict priority, and two boards must never share a cache
-  entry;
-* the tactical window - a pure-action maximin over complete simultaneous
-  rounds, verified against an independent exhaustive reference on a tiny
-  board for rounds 2 and 3, plus the capacity_lab ranking that caught the
-  wrong-push inversion (the window must put the correct approach first and
-  price the wrong push);
-* cross-root transposition - a state reached under a second root still
-  credits its continuation value to that root (the credit happens before
-  the closed-set skip);
-* root pricing - a scoring push is free, walking toward the pushing side
-  is free, retreats and pushes that drag a box away from its goal pay
-  AWAY_PENALTY per damaged step, and returning to a just-visited cell pays
-  REVISIT_PENALTY at the root - unless the return restores a cheaper
-  delivery (productive re-entry after the forced departure is free);
-* ranking semantics - a transient optimistic descendant peak can never
-  override the window's verdict (bucket 1 beats bucket 2), the window's
-  exact value settles same-bucket roots before the deep term, strike
-  breaks exactly-tied window lines, and a timed-out window falls back to
-  the one-ply robust values with telemetry reporting window=0;
-* race + matching - maximum cardinality (a deliverable box is never
-  dropped because another box consumed its only goal - the capacity_lab INF
-  artifact that swung the conversion edge by the full clamp), independent
-  per-box costs for the race winner and the edge, and the ADV_CAP branches;
-* the denial gate opens only when the opponent truly wins the delivery race
-  within the remaining steps; the own-credited-box rule is independent of it;
-* the early exit - a quiet position returns well before the deadline.
-
-Reference semantics (mixed vs pure strategies): the exhaustive reference
-below searches PURE actions only. No randomized (mixed) strategies are
-modelled anywhere in this engine; the window's ordering (I commit first,
-the opponent answers knowing my action, I take their worst case) is the
-conservative pure-action maximin of the simultaneous game under the
-one-ply-committed interpretation used by the planner, and both sides are
-held to exactly that standard here. Terminal leaves are the exact frozen
-score; non-terminal leaves are heuristic estimates, not proven bounds.
-"""
-
 import time
+import gc
 import unittest
-from collections import deque
-
-from src.competitive.agent_a import (
-    AWAY_PENALTY,
-    LAST_SEARCH,
-    REVISIT_PENALTY,
-    _Planner,
-    _key,
-    _rank_structure,
-    best_action,
-    history_entry,
-)
-from src.competitive.evaluation import (
-    ADV_CAP,
-    INF,
-    _advantage,
-    _match_costs,
-    _min_delivery,
-    _race,
-    denial_justified,
-    evaluate,
-)
-from src.competitive.parser import parse_competitive_map
+from functools import lru_cache
+from unittest.mock import patch
+from src.competitive.agent_a import (_Planner, _Timeout, _key, best_action, history_entry,
+                                     LAST_SEARCH, AgentA, round_preferences)
+from src.competitive.evaluation import evaluate, evaluation_components
 from src.competitive.state import Action, Board, CompetitiveState
-from src.competitive.transition import (
-    clear_cache,
-    get_valid_actions,
-    resolve_joint_action_outcome,
-)
+from src.competitive.transition import (get_valid_actions, resolve_joint_action_outcome,
+                                       clear_cache)
+from tests.test_competitive import square_board, check_state_invariants
 
 MAX = 50
 
-# Replay that reproduces capacity_lab at the audited decision point
-# (step 5): A pushing its own box south, B one cell above its easy box.
-CAPACITY_REPLAY = (
-    (Action.SOUTH, Action.SOUTH),
-    (Action.SOUTH, Action.WEST),
-    (Action.EAST, Action.WEST),
-    (Action.EAST, Action.SOUTH),
-    (Action.NORTH, Action.SOUTH),
-)
 
+def reference_roots(state, board, limit, who, depth):
+    """No pruning, planner helpers or transposition bounds; full joint matrix."""
+    def actions(s, side):
+        p, o = (s.agent_a, s.agent_b) if side == "A" else (s.agent_b, s.agent_a)
+        return get_valid_actions(p, o, s.boxes, board) or [Action.WAIT]
 
-def square_board(size=7, extra_walls=frozenset(), goals=((3, 4),)):
-    walls = frozenset(
-        (x, y)
-        for x in range(size)
-        for y in range(size)
-        if x in (0, size - 1) or y in (0, size - 1)
-    ) | frozenset(extra_walls)
-    return Board(walls, frozenset(goals), size, size)
+    def child(s, a, b):
+        aa, ab = (a, b) if who == "A" else (b, a)
+        return resolve_joint_action_outcome(
+            s, aa, ab, board, limit,
+            round_preferences(s, board, limit, "A", aa),
+            round_preferences(s, board, limit, "B", ab)).state
 
+    @lru_cache(None)
+    def value(s, d):
+        if d == 0 or s.is_terminal(limit):
+            return evaluate(s, board, who, limit)
+        return max(min(value(child(s, a, b), d-1)
+                       for b in actions(s, "B" if who == "A" else "A"))
+                   for a in actions(s, who))
 
-def capacity_step5():
-    state, board = parse_competitive_map("maps/competitive/capacity_lab.txt")
-    for action_a, action_b in CAPACITY_REPLAY:
-        state = resolve_joint_action_outcome(state, action_a, action_b, board, 60).state
-    return state, board
+    return {a: min(value(child(state, a, b), depth-1)
+                   for b in actions(state, "B" if who == "A" else "A"))
+            for a in actions(state, who)}
 
 
 class TestStateIdentityAndCaches(unittest.TestCase):
@@ -173,653 +110,179 @@ class TestStateIdentityAndCaches(unittest.TestCase):
         self.assertIn((3, 3), out1_again.state.boxes)
 
 
-class TestTacticalWindow(unittest.TestCase):
-    """The window is a pure-action maximin over complete simultaneous
-    rounds; the planner must agree with an independent exhaustive
-    reference to the last bit."""
 
-    def _ref_reply(self, state, board, my_action, rounds_left):
-        """Planner `_w_reply` in the test's own words: opponent's worst
-        rule-permitted pure reply through the real joint transition."""
-        if rounds_left <= 0:
-            raise AssertionError("reply with no rounds left")
-        replies = (
-            get_valid_actions(state.agent_b, state.agent_a, state.boxes, board)
-            or [Action.WAIT]
-        )
-        return min(
-            self._ref_value(
-                resolve_joint_action_outcome(
-                    state, my_action, reply, board, MAX
-                ).state,
-                board,
-                rounds_left - 1,
-            )
-            for reply in replies
-        )
+class TestCompletedSearch(unittest.TestCase):
+    def planner(self, state, board, limit, who="A"):
+        return _Planner(state, board, limit, who, time.monotonic()+30)
 
-    def _ref_value(self, state, board, rounds_left):
-        """Planner `_w_value`: my best pure commit, then their minimum;
-        `evaluate` at the leaves."""
-        if rounds_left <= 0:
-            return evaluate(state, board, "A", MAX)
-        actions = (
-            get_valid_actions(state.agent_a, state.agent_b, state.boxes, board)
-            or [Action.WAIT]
-        )
-        return max(
-            self._ref_reply(state, board, action, rounds_left)
-            for action in actions
-        )
+    def test_pruned_search_matches_full_joint_matrix_both_parities_and_sides(self):
+        board = square_board(size=5, goals=((3, 3),))
+        for step in (0, 1):
+            for who in ("A", "B"):
+                state = CompetitiveState((1,2),(3,2),{(2,2)},(),(),step)
+                expected = reference_roots(state, board, 4, who, 3)
+                p = self.planner(state, board, 4, who)
+                roots = list(expected)
+                actual = p.root_iteration(roots,3)
+                for a in roots:
+                    self.assertAlmostEqual(actual[a],expected[a])
+                # Cached bounds and reversed traversal cannot change values.
+                for a in roots:
+                    p.row_value(state,a,3,-0.2,0.2)
+                reversed_values = p.root_iteration(list(reversed(roots)),3)
+                self.assertEqual(actual,reversed_values)
 
-    def test_window_matches_exhaustive_reference(self):
-        # Tiny open position; box (3,3) is 4 pushes from every corner, so
-        # within 3 rounds no push can reach a deadlock cell and the
-        # planner's forbidden filter stays inert - the reference's raw
-        # action lists are exactly the planner's. (Documented premise, so
-        # the equality below compares the SEARCH, not filter side effects.)
-        board = square_board(goals=((3, 4),))
-        state = CompetitiveState(
-            (2, 3), (5, 3), frozenset({(3, 3)}), frozenset(), frozenset(), 0
-        )
-        planner = _Planner(
-            state, board, MAX, "A", time.monotonic() + 30, None, None, None
-        )
-        planner.root_actions = planner._my_actions(state)
-        raw_roots = (
-            get_valid_actions(state.agent_a, state.agent_b, state.boxes, board)
-            or [Action.WAIT]
-        )
-        self.assertEqual(planner.root_actions, raw_roots)  # filter inert
+    def test_terminal_stops_expansion_and_uses_actual_score(self):
+        b = square_board()
+        s = CompetitiveState((1,1),(5,5),{(3,4)},{(3,4)},(),2)
+        p = self.planner(s,b,2)
+        with patch.object(p, "children", side_effect=AssertionError("expanded terminal")):
+            self.assertEqual(p.value(s,10),1.0)
+        self.assertEqual(evaluate(s,b,"B",2),-1.0)
 
-        for rounds in (2, 3):
-            window = planner._tactical_window(rounds, time.monotonic() + 30)
-            self.assertEqual(set(window), set(planner.root_actions))
-            for root in planner.root_actions:
-                reference = self._ref_reply(state, board, root, rounds)
-                self.assertAlmostEqual(
-                    window[root],
-                    reference,
-                    places=9,
-                    msg=f"root {root.name} disagrees at rounds={rounds}: "
-                        f"planner {window[root]} vs reference {reference}",
-                )
+    def test_partial_iteration_never_replaces_completed_results(self):
+        b = square_board()
+        s = CompetitiveState((3,2),(5,5),{(3,3)},(),(),0)
+        p = self.planner(s,b,20)
+        original = p.root_iteration
+        completed = {}
+        def interrupted(roots, depth):
+            if depth == 1:
+                completed.update(original(roots,depth))
+                return completed.copy()
+            original(roots[:1],depth)  # real work on only one candidate
+            raise _Timeout()
+        with patch.object(p,"root_iteration",side_effect=interrupted):
+            chosen = p.run()
+        self.assertEqual(p.completed_depth,1)
+        self.assertEqual(p.root_values,completed)
+        self.assertEqual(completed[chosen],max(completed.values()))
 
-    def test_capacity_window_ranks_correct_approach_over_wrong_push(self):
-        # The audited bug: B one push from its goal. The window (3 rounds)
-        # must put the correct approach (EAST: walk, walk, cash in) far
-        # ahead of the wrong push (SOUTH: drive the box away).
-        state, board = capacity_step5()
-        planner = _Planner(
-            state, board, 60, "B", time.monotonic() + 30, None, None, None
-        )
-        planner.root_actions = planner._my_actions(state)
-        window = planner._tactical_window(3, time.monotonic() + 30)
-        self.assertGreater(
-            window[Action.EAST] - window[Action.SOUTH],
-            100.0,  # more than one tactical bucket: decisive, not noise
-            msg=f"window must rank EAST well above SOUTH: {window}",
-        )
-        # And the root penalties agree: the wrong push is charged for
-        # dragging the box away, the correct approach walk is free.
-        child_e, _ = planner._worst_reply(state, Action.EAST)
-        child_s, _ = planner._worst_reply(state, Action.SOUTH)
-        self.assertEqual(planner._away_penalty(state, child_e), 0.0)
-        self.assertGreaterEqual(planner._away_penalty(state, child_s), 75.0)
+    def test_no_completed_iteration_returns_legal_direction(self):
+        b = square_board()
+        s = CompetitiveState((3,2),(5,5),{(3,3)},(),(),0)
+        a = best_action(s,b,20,time_limit=0)
+        self.assertIn(a,get_valid_actions(s.agent_a,s.agent_b,s.boxes,b))
+        self.assertEqual(LAST_SEARCH["depth"],0)
+        self.assertEqual(LAST_SEARCH["roots"],{})
 
+    def test_deadline_gc_guard_restores_previous_setting_on_error(self):
+        b=square_board()
+        s=CompetitiveState((3,2),(5,5),{(3,3)},(),(),0)
+        original=gc.isenabled()
+        try:
+            for enabled in (True,False):
+                gc.enable() if enabled else gc.disable()
+                with patch.object(_Planner,"run",side_effect=ValueError("test")):
+                    with self.assertRaises(ValueError):
+                        best_action(s,b,20,time_limit=.01)
+                self.assertEqual(gc.isenabled(),enabled)
+        finally:
+            gc.enable() if original else gc.disable()
 
-class TestRootValueAggregation(unittest.TestCase):
-    """Backup semantics: cross-root transfer, transient peaks, fallback."""
+    def test_live_and_search_use_identical_preferences_for_both_players(self):
+        b = square_board()
+        s = CompetitiveState((2,3),(4,3),{(3,3)},(),(),0)
+        p = self.planner(s,b,9)
+        for a in p.actions(s,"A"):
+            for _,reply,out in p.children(s,a):
+                live = resolve_joint_action_outcome(s,a,reply,b,9,
+                    round_preferences(s,b,9,"A",a),
+                    round_preferences(s,b,9,"B",reply))
+                self.assertEqual(out,live)
 
-    def test_cross_root_transposition_credits_both_roots(self):
-        # Both of my lines meet the SAME state through distinct branches
-        # (opponent MOBILE, not boxed - see the note below):
-        #   root EAST  -> (5,1) -> WEST  -> (4,1)  \
-        #   root WEST  -> (3,1) -> EAST  -> (4,1)  /  step 2 either way
-        # Box (4,2) -> goal (4,4): delivery cost is dist(pos,(4,1)) + 2,
-        # so BOTH seed walks (E/W from (4,1)) raise the delivery cost
-        # 2 -> 3 and are charged AWAY_PENALTY each - their robust seeds
-        # land at 559 while the converged value is 596. Every alternative
-        # child of both lines evals strictly below 596 as well (W_ADV
-        # prices the longer walks; W_INIT the strike distance).
-        #
-        # Hence, if the credit is skipped when the key is already in the
-        # closed set (the pre-fix behavior), the root that arrives SECOND
-        # keeps max(seed, own alternatives) < stored and one of the two
-        # assertions below fails - whichever root the heap happens to
-        # expand first. (A boxed opponent cannot be used here: eval then
-        # collapses to W_LOCKED * score_diff, identical for every cell,
-        # and the seed alone would equal the stored value.)
-        board = square_board(goals=((4, 4),))
-        state = CompetitiveState(
-            (4, 1), (2, 5), frozenset({(4, 2)}), frozenset(), frozenset(), 0
-        )
-        planner = _Planner(
-            state, board, MAX, "A", time.monotonic() + 2.0, None, None, None
-        )
+    def test_legal_sacrifices_are_not_filtered(self):
+        b = square_board()
+        s = CompetitiveState((3,5),(1,1),{(3,4)},{(3,4)},(),0)
+        self.assertIn(Action.NORTH,self.planner(s,b,30).actions(s,"A"))
+        s = CompetitiveState((1,3),(5,5),{(1,2)},(),(),0)
+        self.assertIn(Action.NORTH,self.planner(s,b,30).actions(s,"A"))
 
-        # Premises: round 1 gives both roots the SAME worst reply P,
-        # round 2 the same worst reply Q, so both lines arrive at one
-        # converged state (root-independence of the stored value).
-        parent_e, _ = planner._worst_reply(state, Action.EAST)
-        parent_w, _ = planner._worst_reply(state, Action.WEST)
-        self.assertEqual(parent_e.agent_a, (5, 1))
-        self.assertEqual(parent_w.agent_a, (3, 1))
-        self.assertEqual(parent_e.agent_b, parent_w.agent_b)
-        child_e, value_e = planner._worst_reply(parent_e, Action.WEST)
-        child_w, value_w = planner._worst_reply(parent_w, Action.EAST)
-        self.assertEqual(child_e, child_w)
-        self.assertAlmostEqual(value_e, value_w, places=9)
-        converged = child_e
+    def test_contested_scoring_is_backed_by_exhaustive_continuations(self):
+        # Former "safe immediate score" test. B can approach via (4,5),
+        # (3,5), then push NORTH to strip A's goal on round three.
+        b = square_board()
+        s = CompetitiveState((3,2),(5,5),{(3,3)},(),(),0)
+        expected = reference_roots(s,b,20,"A",5)
+        planner = self.planner(s,b,20)
+        shallow = planner.root_iteration(list(expected),1)
+        self.assertEqual(max(shallow, key=shallow.get), Action.SOUTH)
+        actual = planner.root_iteration(list(expected),5)
+        self.assertEqual(actual,expected)
+        self.assertLess(expected[Action.SOUTH],max(expected.values()))
+        for aa,bb in ((Action.SOUTH,Action.WEST),
+                      (Action.EAST,Action.WEST),(Action.EAST,Action.NORTH)):
+            s=resolve_joint_action_outcome(s,aa,bb,b,20,
+                round_preferences(s,b,20,"A",aa),
+                round_preferences(s,b,20,"B",bb)).state
+        self.assertEqual(s.score_a(),0)
+        self.assertIn((3,3),s.boxes)
 
-        stored_eval = evaluate(converged, board, "A", MAX)
+    def test_repetition_only_breaks_equal_value_ties(self):
+        b=square_board()
+        s=CompetitiveState((3,3),(5,5),(),(),(),0)
+        previous=CompetitiveState((3,2),(5,5),(),(),(),0)
+        a=best_action(s,b,1,recent_positions=[history_entry(previous,"A")],time_limit=.1)
+        self.assertNotEqual(a,Action.NORTH)
+        self.assertEqual({v["value"] for v in LAST_SEARCH["roots"].values()},{0.0})
 
-        # Premise: converged is STRICTLY better than every alternative
-        # child of both lines (otherwise the closed-set skip would be
-        # invisible: an equal-valued sibling would lift the second
-        # root's deep term anyway).
-        opp = converged.agent_b
-        for alt_pos in ((5, 2), (2, 1), (3, 2)):
-            alt = CompetitiveState(
-                alt_pos, opp, frozenset({(4, 2)}),
-                frozenset(), frozenset(), 2,
-            )
-            self.assertGreater(
-                stored_eval, evaluate(alt, board, "A", MAX),
-                msg=f"child {alt_pos} must be strictly worse than (4,1)",
-            )
-        # Premise: both robust seeds (penalised walks) sit below stored.
-        for seed in (parent_e, parent_w):
-            robust = (
-                evaluate(seed, board, "A", MAX)
-                - planner._away_penalty(state, seed)
-            )
-            self.assertGreater(
-                stored_eval, robust,
-                msg=f"seed {seed.agent_a} must rank below the convergence",
-            )
+    def test_safe_score_both_perspectives_at_round_limit(self):
+        b=square_board(goals=((5,5),))
+        for who in ("A","B"):
+            a,c=((5,3),(1,1)) if who=="A" else ((1,1),(5,3))
+            s=CompetitiveState(a,c,{(5,4)},(),(),0)
+            self.assertEqual(best_action(s,b,1,who,time_limit=.1),Action.SOUTH)
 
-        planner.run()
-        key = _key(converged)
-        self.assertIn(key, planner.closed)
-        stored = planner.closed[key]
-        self.assertAlmostEqual(stored, stored_eval, places=6)
-        # BOTH roots received the continuation value of the shared state.
-        self.assertGreaterEqual(planner.deep[Action.EAST], stored - 1e-9)
-        self.assertGreaterEqual(planner.deep[Action.WEST], stored - 1e-9)
-
-    def test_transient_peak_cannot_override_window(self):
-        board = square_board(goals=((5, 5),))
-        state = CompetitiveState(
-            (3, 3), (5, 1), frozenset({(5, 5)}),
-            frozenset({(5, 5)}), frozenset(), 0,
-        )
-        planner = _Planner(
-            state, board, MAX, "A", time.monotonic() + 1, None, None, None
-        )
-        planner.root_actions = [Action.SOUTH, Action.EAST]
-        # South is behind by a whole tactical bucket...
-        planner.window = {Action.SOUTH: -100.0, Action.EAST: -350.0}
-        planner.window_rounds = 3
-        planner.robust = {Action.SOUTH: -100.0, Action.EAST: -50.0}
-        planner.penalties = {Action.SOUTH: 0.0, Action.EAST: 0.0}
-        planner.strikes = {Action.SOUTH: 1, Action.EAST: 1}
-        # ...but the descendant term found a huge optimistic peak for it.
-        planner.deep = {Action.SOUTH: -100.0, Action.EAST: 9000.0}
-        self.assertEqual(planner._rank_root(), Action.SOUTH)
-
-        # Window timed out: the ranking falls back to the one-ply robust
-        # values (EAST ahead there), never to the stale window or peak.
-        planner.window = None
-        planner.window_rounds = 0
-        self.assertEqual(planner._rank_root(), Action.EAST)
-
-    def test_exact_window_margin_beats_deep_peak_within_bucket(self):
-        # Same tactical bucket: the window's OWN exact value settles the
-        # ranking. A 9000 descendant peak on the worse line may only
-        # separate roots the window values EXACTLY equal - below the
-        # bucket quantum the tactical analysis is still never overridable
-        # by optimistic search (was: the deep bucket decided here).
-        board = square_board(goals=((5, 5),))
-        state = CompetitiveState(
-            (3, 3), (5, 1), frozenset({(5, 5)}),
-            frozenset({(5, 5)}), frozenset(), 0,
-        )
-        planner = _Planner(
-            state, board, MAX, "A", time.monotonic() + 1, None, None, None
-        )
-        planner.root_actions = [Action.SOUTH, Action.EAST]
-        planner.window = {Action.SOUTH: -101.0, Action.EAST: -160.0}
-        planner.window_rounds = 3
-        planner.robust = {Action.SOUTH: -101.0, Action.EAST: -50.0}
-        planner.penalties = {Action.SOUTH: 0.0, Action.EAST: 0.0}
-        planner.strikes = {Action.SOUTH: 1, Action.EAST: 1}
-        planner.deep = {Action.SOUTH: -101.0, Action.EAST: 9000.0}
-        self.assertEqual(planner._rank_root(), Action.SOUTH)
-
-    def test_strike_breaks_exact_window_ties_before_deep(self):
-        # Exactly equal window values: step toward the fight (shorter
-        # strike) before consulting the optimistic term - was: the deep
-        # bucket decided exactly-tied window lines.
-        board = square_board(goals=((5, 5),))
-        state = CompetitiveState(
-            (3, 3), (5, 1), frozenset({(5, 5)}),
-            frozenset({(5, 5)}), frozenset(), 0,
-        )
-        planner = _Planner(
-            state, board, MAX, "A", time.monotonic() + 1, None, None, None
-        )
-        planner.root_actions = [Action.SOUTH, Action.EAST]
-        planner.window = {Action.SOUTH: -100.0, Action.EAST: -100.0}
-        planner.window_rounds = 3
-        planner.robust = {Action.SOUTH: -100.0, Action.EAST: -100.0}
-        planner.penalties = {Action.SOUTH: 0.0, Action.EAST: 0.0}
-        planner.strikes = {Action.SOUTH: 5, Action.EAST: 1}
-        planner.deep = {Action.SOUTH: 5000.0, Action.EAST: -100.0}
-        self.assertEqual(planner._rank_root(), Action.EAST)
-
-    def test_window_timeout_falls_back_to_robust_and_valid_direction(self):
-        board = square_board(goals=((5, 5),))
-        state = CompetitiveState(
-            (3, 3), (5, 1), frozenset({(5, 5)}),
-            frozenset({(5, 5)}), frozenset(), 0,
-        )
-        # Deadline already gone: seeding and/or the window must time out
-        # without raising, and the answer must still be a legal direction.
-        planner = _Planner(
-            state, board, MAX, "A", time.monotonic(), None, None, None
-        )
-        action = planner.run()
-        self.assertIsNone(planner.window)
-        self.assertEqual(planner.window_rounds, 0)
-        valid = (
-            get_valid_actions(state.agent_a, state.agent_b, state.boxes, board)
-            or [Action.WAIT]
-        )
-        self.assertIn(action, valid)
-
-    def test_normal_search_reports_completed_window(self):
-        board = square_board(goals=((5, 5),))
-        state = CompetitiveState(
-            (3, 3), (5, 1), frozenset({(5, 5)}),
-            frozenset({(5, 5)}), frozenset(), 0,
-        )
-        action = best_action(state, board, MAX, "A", deque(maxlen=6), {}, {}, 0.3)
-        self.assertGreaterEqual(LAST_SEARCH["window"], 2)
-        valid = (
-            get_valid_actions(state.agent_a, state.agent_b, state.boxes, board)
-            or [Action.WAIT]
-        )
-        self.assertIn(action, valid)
-
-    def test_structural_stability_ignores_value_creep_inside_buckets(self):
-        # The early-exit comparison: the winner and its FROZEN prefix
-        # (tactical bucket, exact window value, strike = key[:3]) are the
-        # structure. Refinement of the deep term (key 3+) is NOT a
-        # ranking change (requiring bit-stability made the exit
-        # unreachable), while a frozen-tier change or a winner flip is.
-        winner = (Action.EAST, (-4, -430.0, 1, -3, -410.0, -500.0, 0))
-        crept = (Action.EAST, (-4, -430.0, 1, -3, -399.0, -490.0, 0))
-        self.assertEqual(_rank_structure(winner), _rank_structure(crept))
-        # A deep-bucket crossing under an already-decided prefix cannot
-        # reorder anything: not structural.
-        deep_crossed = (Action.EAST, (-4, -430.0, 1, -4, -410.0, -500.0, 0))
-        self.assertEqual(_rank_structure(winner), _rank_structure(deep_crossed))
-        # The frozen exact window value moving IS a verdict change.
-        frozen_moved = (Action.EAST, (-4, -400.0, 1, -3, -410.0, -500.0, 0))
-        self.assertNotEqual(
-            _rank_structure(winner), _rank_structure(frozen_moved)
-        )
-        winner_changed = (Action.SOUTH, (-4, -430.0, 1, -3, -410.0, -500.0, 0))
-        self.assertNotEqual(_rank_structure(winner), _rank_structure(winner_changed))
+    def test_preference_submission_is_cached_inside_decision(self):
+        b=square_board()
+        s=CompetitiveState((3,2),(5,5),{(3,3)},(),(),0)
+        agent=AgentA(.05)
+        a=agent.choose_action(s,b,10)
+        with patch("src.competitive.agent_a.round_preferences",side_effect=AssertionError):
+            self.assertEqual(agent.preference_list(s,b,10,a)[0],a)
 
 
-class TestRootPenalties(unittest.TestCase):
-    """_away_penalty pricing: scoring free, approach free, damage charged."""
+class TestScoringAndEvaluation(unittest.TestCase):
+    def test_credit_removal_and_goal_to_goal_transfer(self):
+        b=square_board(goals=((3,3),(3,4)))
+        s=CompetitiveState((1,1),(3,2),{(3,3)},{(3,3)},(),0)
+        out=resolve_joint_action_outcome(s,Action.EAST,Action.SOUTH,b,4)
+        self.assertEqual((out.state.score_a(),out.state.score_b()),(0,1))
+        self.assertEqual(out.state.boxes_on_goals_b,frozenset({(3,4)}))
+        out=resolve_joint_action_outcome(out.state,Action.WEST,Action.SOUTH,b,4)
+        self.assertEqual((out.state.score_a(),out.state.score_b()),(0,0))
 
-    def _planner(self, state, board):
-        return _Planner(
-            state, board, MAX, "A", time.monotonic() + 5, None, None, None
-        )
+    def test_filled_goals_do_not_end_game(self):
+        b=square_board()
+        s=CompetitiveState((1,1),(5,5),{(3,4)},{(3,4)},(),0)
+        self.assertFalse(s.is_terminal(10))
 
-    @staticmethod
-    def _opp_reply(state, board):
-        return get_valid_actions(
-            state.agent_b, state.agent_a, state.boxes, board
-        )[0]
+    def test_bounds_are_physical_not_just_wall_membership(self):
+        b=Board(frozenset(),frozenset({(1,1)}),3,3)
+        self.assertNotIn(Action.WEST,get_valid_actions((0,0),(2,2),frozenset(),b))
+        self.assertNotIn(Action.NORTH,get_valid_actions((0,0),(2,2),frozenset(),b))
 
-    def test_scoring_push_pays_no_penalty(self):
-        # Scoring push while a second box stays loose: cashing a point in
-        # must never be charged for "losing" the box it just delivered.
-        board = square_board(goals=((3, 4),))
-        state = CompetitiveState(
-            (3, 2), (6, 1), frozenset({(3, 3), (4, 4)}),
-            frozenset(), frozenset(), 0,
-        )
-        planner = self._planner(state, board)
-        child = resolve_joint_action_outcome(
-            state, Action.SOUTH, self._opp_reply(state, board), board, MAX
-        ).state
-        self.assertIn((3, 4), child.boxes_on_goals_a)  # premise: it scored
-        self.assertEqual(planner._away_penalty(state, child), 0.0)
+    def test_opportunities_do_not_sum_independent_deliveries(self):
+        b=square_board(goals=((2,4),(4,4)))
+        s=CompetitiveState((2,2),(5,1),{(2,3),(4,3)},(),(),0)
+        terms=evaluation_components(s,b,20)
+        self.assertLessEqual(abs(terms["opportunity"]),.65)
+        self.assertEqual(terms["credit"],0)
 
-    def test_approach_walk_is_free_and_retreat_is_charged(self):
-        board = square_board(goals=((3, 4),))
-        state = CompetitiveState(
-            (1, 3), (5, 1), frozenset({(3, 3)}), frozenset(), frozenset(), 0
-        )
-        planner = self._planner(state, board)
-        # EAST closes on the pushing side (3,2): delivery gets cheaper -> free.
-        approach = resolve_joint_action_outcome(
-            state, Action.EAST, self._opp_reply(state, board), board, MAX
-        ).state
-        self.assertEqual(approach.agent_a, (2, 3))  # premise: it walked
-        self.assertEqual(planner._away_penalty(state, approach), 0.0)
-        # SOUTH walks away from the box's only scoring approach: +1 step
-        # of delivery cost -> one step of damage charged.
-        retreat = resolve_joint_action_outcome(
-            state, Action.SOUTH, self._opp_reply(state, board), board, MAX
-        ).state
-        self.assertEqual(retreat.agent_a, (1, 4))  # premise
-        self.assertEqual(planner._away_penalty(state, retreat), AWAY_PENALTY)
+    def test_uncredited_goal_box_does_not_count_as_zero_step_delivery(self):
+        b=square_board(goals=((1,1),))
+        s=CompetitiveState((1,2),(5,5),{(1,1)},(),(),0)
+        self.assertEqual(evaluate(s,b,"A",1),0)
 
-    def test_push_that_drags_box_away_is_charged(self):
-        # The capacity inversion in miniature: box one correct push from
-        # the goal (S from (3,2) cashes it in), but I push it the wrong
-        # way - EAST, off the scoring line. The box stays deliverable,
-        # just more expensive (3 -> 6 steps of walk+push).
-        board = square_board(goals=((3, 4),))
-        state = CompetitiveState(
-            (2, 3), (6, 1), frozenset({(3, 3)}), frozenset(), frozenset(), 0
-        )
-        planner = self._planner(state, board)
-        child = resolve_joint_action_outcome(
-            state, Action.EAST, self._opp_reply(state, board), board, MAX
-        ).state
-        self.assertIn((4, 3), child.boxes)  # premise: box dragged away
-        # Delivery cost 3 -> 6 steps: three damaged steps priced at
-        # AWAY_PENALTY each (was: 0, because the strike-based basis
-        # moved the target set along with the push).
-        self.assertEqual(planner._away_penalty(state, child), 3 * AWAY_PENALTY)
-
-    def test_revisit_penalty_applied_at_root(self):
-        board = square_board(goals=((5, 5),))
-        state = CompetitiveState(
-            (3, 3), (5, 1), frozenset({(5, 5)}),
-            frozenset({(5, 5)}), frozenset(), 0,
-        )
-        probe = self._planner(state, board)
-        child_east, _ = probe._worst_reply(state, Action.EAST)
-
-        # Fingerprints: revisiting = same cell with an unchanged board...
-        planner = _Planner(
-            state, board, MAX, "A", time.monotonic() + 2,
-            deque([history_entry(child_east, "A")], maxlen=6), None, None,
-        )
-        self.assertTrue(planner._is_revisit(child_east))
-        self.assertFalse(planner._is_revisit(state))          # different cell
-        changed = CompetitiveState(
-            child_east.agent_a, child_east.agent_b,
-            frozenset({(4, 4)}), child_east.boxes_on_goals_a,
-            child_east.boxes_on_goals_b, child_east.step,
-        )
-        self.assertFalse(planner._is_revisit(changed))        # board changed
-
-        # And run() actually charges it at the root.
-        planner.run()
-        self.assertGreaterEqual(planner.penalties[Action.EAST], REVISIT_PENALTY)
-
-    def test_revisit_penalty_is_flat_even_when_return_lowers_delivery_cost(self):
-        # Revisit pricing is FLAT by design, A/B measured on dense_goals:
-        # exempting a return that lowers delivery cost freed the return half
-        # of the horizon-gaming ping-pong (from (5,3) returning home looked
-        # cheaper than advancing into the censored R3 win), and both agents
-        # looped for 40+ steps with 46 refusal flags; the flat 250 broke the
-        # loop (11 flags, A cashes). Both roots that land on just-visited
-        # cells are charged the same, whatever the delivery cost does.
-        board = square_board(goals=((3, 4),))
-        state = CompetitiveState(
-            (1, 3), (5, 1), frozenset({(3, 3)}), frozenset(), frozenset(), 0
-        )
-        probe = self._planner(state, board)
-        child_east, _ = probe._worst_reply(state, Action.EAST)   # -> (2, 3)
-        child_south, _ = probe._worst_reply(state, Action.SOUTH)  # -> (1, 4)
-        planner = _Planner(
-            state, board, MAX, "A", time.monotonic() + 2,
-            deque(
-                [history_entry(child_east, "A"), history_entry(child_south, "A")],
-                maxlen=6,
-            ),
-            None, None,
-        )
-        planner.run()
-        self.assertGreaterEqual(planner.penalties[Action.EAST], REVISIT_PENALTY)
-        self.assertGreaterEqual(
-            planner.penalties[Action.SOUTH], REVISIT_PENALTY
-        )
-
-
-class TestRaceAndMatching(unittest.TestCase):
-    """Race assignment: cardinality-first matching, independent costs."""
-
-    def _capacity_state(self):
-        state, board = capacity_step5()
-        # The audited endgame position: A's box (4,7) and B's box (14,8)
-        # both need goal (8,8) as (14,8)'s ONLY reachable goal; greedy
-        # cheapest-first matching left (14,8) unmatched for A -> INF ->
-        # "only the opponent can deliver" -> -ADV_CAP of phantom edge.
-        state = CompetitiveState(
-            (5, 4), (14, 7),
-            frozenset({(4, 7), (5, 5), (14, 8)}),
-            frozenset({(5, 5)}), frozenset(),
-            state.step,
-        )
-        return state, board
-
-    def test_match_costs_never_drops_a_deliverable_box(self):
-        state, board = self._capacity_state()
-        free_boxes = state.boxes - state.boxes_on_goals_a - state.boxes_on_goals_b
-        free_goals = board.goals - state.boxes_on_goals_a - state.boxes_on_goals_b
-        costs = _match_costs(state.agent_a, free_boxes, free_goals, board)
-        # Maximum cardinality: BOTH boxes matched, each to a distinct goal.
-        self.assertEqual(set(costs), {(4, 7), (14, 8)})
-        for box, cost in costs.items():
-            self.assertLess(cost, INF, msg=f"{box} unmatched")
-        # and the goals are distinct
-        self.assertEqual(len(costs), 2)
-
-    def test_race_counts_and_edge_use_independent_costs(self):
-        state, board = self._capacity_state()
-        remaining = 60 - state.step
-        projected_a, projected_b, adv = _race(state, board, remaining)
-        # Each side wins exactly the box it can cash cheaper: the counts
-        # must not be skewed by a dropped match or a phantom INF.
-        self.assertEqual((projected_a, projected_b), (1.0, 1.0))
-        # Edge = (-A's cost on (4,7)) + (+B's cost on (14,8)) in cost
-        # units: small. The old matched-cost version summed to -35
-        # (a -ADV_CAP charged for a box A in fact can deliver).
-        self.assertLess(abs(adv), 10.0, msg=f"phantom exclusivity in edge: {adv}")
-
-    def test_advantage_branches(self):
-        self.assertEqual(_advantage(2, 4, 3), ADV_CAP)    # only I convert in time
-        self.assertEqual(_advantage(INF, 4, 50), -ADV_CAP)  # only they can
-        self.assertEqual(_advantage(6, INF, 50), ADV_CAP)   # only I can
-        self.assertEqual(_advantage(INF, INF, 50), 0.0)     # nobody converts
-        self.assertEqual(_advantage(6, 4, 3), 0.0)          # both out of time
-        self.assertEqual(_advantage(4, 7, 50), -4.0)        # A ahead: charge my cost
-        self.assertEqual(_advantage(7, 4, 50), 4.0)         # B ahead: gain their cost
-        self.assertEqual(_advantage(5, 5, 50), 0.0)         # exact tie: split
-
-
-class TestPushFilterGates(unittest.TestCase):
-    """The gates the evaluation docstring references by file name."""
-
-    def test_denial_only_when_opponent_really_wins_the_race(self):
-        board = square_board(goals=((3, 4),))
-        # Loose box (2,3): A adjacent-ish (delivery ~4), B across the map
-        # (~10) - A wins the race with room to spare.
-        state = CompetitiveState(
-            (1, 3), (5, 1), frozenset({(2, 3)}), frozenset(), frozenset(), 0
-        )
-        a_cost = _min_delivery(state, board, (2, 3), "A")
-        b_cost = _min_delivery(state, board, (2, 3), "B")
-        self.assertLess(a_cost, b_cost)  # premise
-
-        # B wants to kill the box: justified, A already owns this race.
-        self.assertTrue(denial_justified(state, board, (2, 3), "B", MAX))
-        # A killing its OWN race point is never justified.
-        self.assertFalse(denial_justified(state, board, (2, 3), "A", MAX))
-
-        # Out of time: A cannot actually deliver inside the remaining
-        # steps, so the denial would destroy a box nobody can cash - the
-        # rule stays hard (theirs > remaining -> False).
-        theirs = _min_delivery(state, board, (2, 3), "A")
-        self.assertGreaterEqual(theirs, 1)
-        timed_out = CompetitiveState(
-            state.agent_a, state.agent_b, state.boxes,
-            state.boxes_on_goals_a, state.boxes_on_goals_b,
-            MAX - (theirs - 1),   # remaining = theirs - 1
-        )
-        self.assertFalse(
-            denial_justified(timed_out, board, (2, 3), "B", MAX)
-        )
-
-    def test_denial_refused_when_nobody_can_deliver(self):
-        # The only goal is occupied by A's credited box: free goals are
-        # empty, both sides read INF, denial is pointless -> False.
-        board = square_board(goals=((3, 4),))
-        state = CompetitiveState(
-            (1, 3), (5, 1), frozenset({(3, 4), (2, 3)}),
-            frozenset({(3, 4)}), frozenset(), 0,
-        )
-        free_goals = board.goals - state.boxes_on_goals_a - state.boxes_on_goals_b
-        self.assertEqual(free_goals, frozenset())  # premise
-        self.assertFalse(denial_justified(state, board, (2, 3), "B", MAX))
-
-    def test_own_credited_box_rule_is_independent_of_denial(self):
-        # Pushing my own credited box off its goal stays forbidden no
-        # matter what any race elsewhere says - the denial gate must not
-        # unlock it (the constructed counterexample was refuted; see the
-        # audit note at the bottom of evaluation.py).
-        board = square_board(goals=((3, 4),))
-        state = CompetitiveState(
-            (2, 4), (5, 1), frozenset({(3, 4)}),
-            frozenset({(3, 4)}), frozenset(), 0,
-        )
-        planner = _Planner(
-            state, board, MAX, "A", time.monotonic() + 1, None, None, None
-        )
-        # EAST pushes the credited box (3,4) -> (4,4), off its goal.
-        self.assertTrue(
-            planner._forbidden(state, Action.EAST, state.boxes_on_goals_a)
-        )
-        # Pushing it back ONTO a goal is not throwing the point away.
-        state2 = CompetitiveState(
-            (4, 4), (5, 1), frozenset({(3, 4)}),
-            frozenset({(3, 4)}), frozenset(), 0,
-        )
-        # (WEST would push it (3,4) -> (2,4), off goal: still forbidden.)
-        planner2 = _Planner(
-            state2, board, MAX, "A", time.monotonic() + 1, None, None, None
-        )
-        self.assertTrue(
-            planner2._forbidden(state2, Action.WEST, state2.boxes_on_goals_a)
-        )
-
-
-class TestEarlyExit(unittest.TestCase):
-    """Quiet positions return before the deadline; deadlines stay hard."""
-
-    def test_quiet_position_exits_before_deadline(self):
-        state, board = parse_competitive_map("maps/competitive/capacity_lab.txt")
-        # Fresh process state, cold-ish caches: even so, the structural
-        # stability check must fire long before the 2.95s deadline.
-        best_action(state, board, 60, "A", deque(maxlen=6), {}, {}, 3.0)
-        self.assertGreater(LAST_SEARCH["time"], 0.0)
-        self.assertLess(
-            LAST_SEARCH["time"], 2.0,
-            msg="early exit did not fire on a quiet opening position "
-                f"(time={LAST_SEARCH['time']:.3f}s, deadline=2.95s)",
-        )
-        self.assertGreaterEqual(LAST_SEARCH["window"], 2)
-
-    def test_time_budget_is_still_a_hard_cap(self):
-        # The other direction: an active search must never EXCEED the
-        # limit (monotonic deadline; early exit only under-runs it).
-        state, board = parse_competitive_map("maps/competitive/dense_goals.txt")
-        started = time.monotonic()
-        best_action(state, board, 60, "A", deque(maxlen=6), {}, {}, 0.4)
-        wall = time.monotonic() - started
-        self.assertLessEqual(wall, 0.4 + 0.15)  # limit + scheduling slack
-
-    # ── _exit_decided: when is the current winner provably final? ──────
-
-    @staticmethod
-    def _tied_planner():
-        """Planner whose top two SHARE the tactical bucket: NORTH and
-        EAST both sit at bucket 1 (100/100), SOUTH trails a bucket."""
-        state, board = parse_competitive_map("maps/competitive/capacity_lab.txt")
-        p = _Planner(
-            state, board, MAX, "A", time.monotonic() + 1.0, None, None, None
-        )
-        p.root_actions = [Action.NORTH, Action.EAST, Action.SOUTH]
-        p.window = {Action.NORTH: 100.0, Action.EAST: 100.0, Action.SOUTH: 20.0}
-        p.robust = dict(p.window)
-        p.deep = dict(p.window)
-        return p
-
-    def test_live_bucket_tie_blocks_exit_before_gate(self):
-        # Tied top two, rival frontier still live: the deep tie-break is
-        # an unexplored frontier, not a verdict - keep thinking.
-        p = self._tied_planner()
-        live = {Action.NORTH: [0], Action.EAST: [0], Action.SOUTH: [0]}
-        self.assertFalse(p._exit_decided(live, time.monotonic() + 1.0))
-
-    def test_tie_gate_releases_after_budget_share(self):
-        # The same tie once the bounded gate has passed: exit allowed
-        # (latency cap - a tie may not burn the whole deadline).
-        p = self._tied_planner()
-        live = {Action.NORTH: [0], Action.EAST: [0], Action.SOUTH: [0]}
-        self.assertTrue(p._exit_decided(live, time.monotonic() - 1.0))
-
-    def test_drained_tied_rival_is_decided_before_gate(self):
-        # Tied rival with an EMPTY frontier can no longer move its deep
-        # value, and the winner already leads the frozen remainder of
-        # the key - provably final, no gate needed.
-        p = self._tied_planner()
-        drained = {Action.NORTH: [0], Action.EAST: [], Action.SOUTH: [0]}
-        self.assertTrue(p._exit_decided(drained, time.monotonic() + 1.0))
-
-    def test_bucket_separated_exit_needs_no_gate(self):
-        # Winner strictly ahead on the FROZEN tactical key: no amount of
-        # later deep refinement can overtake a lexicographically
-        # dominant key0, so live rivals don't matter.
-        p = self._tied_planner()
-        p.window[Action.NORTH] = 210.0       # bucket 2 vs EAST's bucket 1
-        p.robust[Action.NORTH] = 210.0
-        p.deep[Action.NORTH] = 210.0
-        live = {Action.NORTH: [0], Action.EAST: [0], Action.SOUTH: [0]}
-        self.assertTrue(p._exit_decided(live, time.monotonic() + 1.0))
-
-    def test_exact_window_separation_decides_before_gate(self):
-        # Same tactical bucket, different exact window values: the
-        # frozen exact term settles the tie, so live rival frontiers
-        # cannot change the verdict - no gate needed (was: this tie
-        # waited for the gate although its outcome was already frozen).
-        p = self._tied_planner()
-        p.window[Action.NORTH] = 160.0    # bucket 1, same as EAST's 100
-        p.robust[Action.NORTH] = 160.0
-        p.deep[Action.NORTH] = 160.0
-        live = {Action.NORTH: [0], Action.EAST: [0], Action.SOUTH: [0]}
-        self.assertTrue(p._exit_decided(live, time.monotonic() + 1.0))
-
-    def test_single_root_is_trivially_decided(self):
-        # Nothing that could overtake exists.
-        p = self._tied_planner()
-        p.root_actions = [Action.NORTH]
-        self.assertTrue(
-            p._exit_decided({Action.NORTH: [0]}, time.monotonic() + 1.0)
-        )
+    def test_blocked_round_consumes_time_without_overlap(self):
+        b=Board(frozenset({(x,y) for x in range(4) for y in range(3)
+                           if (x,y) not in ((1,1),(2,1))}),frozenset(),4,3)
+        s=CompetitiveState((1,1),(2,1),(),(),(),0)
+        out=resolve_joint_action_outcome(s,Action.EAST,Action.WEST,b,3)
+        self.assertEqual((out.state.agent_a,out.state.agent_b),((1,1),(2,1)))
+        self.assertEqual(out.state.step,1)
+        self.assertEqual(out.resolved_action_a,Action.WAIT)
+        self.assertEqual(out.resolved_action_b,Action.WAIT)
 
 
 if __name__ == "__main__":

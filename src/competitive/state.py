@@ -16,7 +16,7 @@ class Action(Enum):
 class Board:
     """Static board information — walls, goals, dimensions. Created once and shared."""
     __slots__ = ("walls", "goals", "width", "height", "floor_cells", "distances",
-                 "push_costs", "exact_step_costs", "serial")
+                 "push_costs", "exact_step_costs", "serial", "neighbors")
 
     # Monotone board identity. The evaluation and transition memo caches are
     # keyed by positions/boxes/credits, which are only meaningful together
@@ -46,6 +46,12 @@ class Board:
             for y in range(height)
             if (x, y) not in self.walls
         )
+        self.neighbors = {
+            (x, y): tuple((x + dx, y + dy)
+                          for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0))
+                          if (x + dx, y + dy) in self.floor_cells)
+            for x, y in self.floor_cells
+        }
         
         # Precompute all-pairs shortest path (BFS) for legal distances
         from collections import deque

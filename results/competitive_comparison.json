@@ -1,0 +1,4615 @@
+{
+  "budget": 1.0,
+  "rounds": 50,
+  "baseline_dir": "C:\\Users\\PROTEC~1\\AppData\\Local\\Temp\\sokoban-before-rewrite-20261008-202809\\competitive",
+  "baseline_repair": "missing _joint_prefs -> _round_prefs_for, in memory only",
+  "decisions": [
+    {
+      "case": "arena_open",
+      "engine": "rewrite",
+      "perspective": "A",
+      "action": "SOUTH",
+      "elapsed": 0.9666319999960251,
+      "search": {
+        "engine": "simultaneous-maximin",
+        "perspective": "A",
+        "depth": 11,
+        "window": 11,
+        "nodes": 15753,
+        "cache_hits": 7740,
+        "roots": {
+          "SOUTH": {
+            "value": 0.0,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "WEST",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "NORTH",
+                "immediate_value": 0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "EAST",
+                "immediate_value": 0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              }
+            ]
+          },
+          "EAST": {
+            "value": 0.0,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "WEST",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "NORTH",
+                "immediate_value": 0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "EAST",
+                "immediate_value": 0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              }
+            ]
+          },
+          "NORTH": {
+            "value": -0.4071428571428572,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "WEST",
+                "immediate_value": -0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "NORTH",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "EAST",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              }
+            ]
+          },
+          "WEST": {
+            "value": -0.4071428571428572,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "WEST",
+                "immediate_value": -0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "NORTH",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "EAST",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              }
+            ]
+          }
+        },
+        "iterations": [
+          {
+            "depth": 1,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "NORTH": -0.1732536764705883,
+              "WEST": -0.1732536764705883
+            }
+          },
+          {
+            "depth": 2,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "NORTH": -0.19480165649520487,
+              "WEST": -0.19480165649520487
+            }
+          },
+          {
+            "depth": 3,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "NORTH": -0.22190126050420156,
+              "WEST": -0.22190126050420156
+            }
+          },
+          {
+            "depth": 4,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "NORTH": -0.46152073732718896,
+              "WEST": -0.46152073732718896
+            }
+          },
+          {
+            "depth": 5,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "NORTH": -0.40297619047619054,
+              "WEST": -0.40297619047619054
+            }
+          },
+          {
+            "depth": 6,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "NORTH": -0.013333333333333332,
+              "WEST": -0.013333333333333332
+            }
+          },
+          {
+            "depth": 7,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "NORTH": -0.03333333333333334,
+              "WEST": -0.03333333333333334
+            }
+          },
+          {
+            "depth": 8,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "NORTH": -0.08,
+              "WEST": -0.08
+            }
+          },
+          {
+            "depth": 9,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "NORTH": -0.4071428571428572,
+              "WEST": -0.4071428571428572
+            }
+          },
+          {
+            "depth": 10,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "NORTH": -0.08571428571428572,
+              "WEST": -0.08571428571428572
+            }
+          },
+          {
+            "depth": 11,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "NORTH": -0.4071428571428572,
+              "WEST": -0.4071428571428572
+            }
+          }
+        ],
+        "preferences": {
+          "A": [
+            "SOUTH",
+            "EAST",
+            "NORTH",
+            "WEST"
+          ],
+          "B": [
+            "SOUTH",
+            "WEST",
+            "NORTH",
+            "EAST"
+          ]
+        },
+        "time": 0.9601828000013484
+      }
+    },
+    {
+      "case": "arena_open",
+      "engine": "rewrite",
+      "perspective": "B",
+      "action": "SOUTH",
+      "elapsed": 0.9676666999948793,
+      "search": {
+        "engine": "simultaneous-maximin",
+        "perspective": "B",
+        "depth": 10,
+        "window": 10,
+        "nodes": 15993,
+        "cache_hits": 7646,
+        "roots": {
+          "SOUTH": {
+            "value": -0.0,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              }
+            ]
+          },
+          "WEST": {
+            "value": -0.0,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "WEST",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "WEST",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "WEST",
+                "immediate_value": 0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "WEST",
+                "immediate_value": 0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              }
+            ]
+          },
+          "NORTH": {
+            "value": -0.7055410248958637,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "NORTH",
+                "immediate_value": -0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "NORTH",
+                "immediate_value": -0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "NORTH",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "NORTH",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              }
+            ]
+          },
+          "EAST": {
+            "value": -0.7055410248958637,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "EAST",
+                "immediate_value": -0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "EAST",
+                "immediate_value": -0.1732536764705883,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.1732536764705883,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "EAST",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "EAST",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              }
+            ]
+          }
+        },
+        "iterations": [
+          {
+            "depth": 1,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "NORTH": -0.1732536764705883,
+              "EAST": -0.1732536764705883
+            }
+          },
+          {
+            "depth": 2,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "NORTH": -0.19480165649520487,
+              "EAST": -0.19480165649520487
+            }
+          },
+          {
+            "depth": 3,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "NORTH": -0.22190126050420156,
+              "EAST": -0.22190126050420156
+            }
+          },
+          {
+            "depth": 4,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "NORTH": -0.46152073732718896,
+              "EAST": -0.46152073732718896
+            }
+          },
+          {
+            "depth": 5,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "NORTH": -0.40297619047619054,
+              "EAST": -0.40297619047619054
+            }
+          },
+          {
+            "depth": 6,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "NORTH": -0.013333333333333332,
+              "EAST": -0.013333333333333332
+            }
+          },
+          {
+            "depth": 7,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "NORTH": -0.025,
+              "EAST": -0.025
+            }
+          },
+          {
+            "depth": 8,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "NORTH": -0.06666666666666668,
+              "EAST": -0.06666666666666668
+            }
+          },
+          {
+            "depth": 9,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "NORTH": -0.4071428571428572,
+              "EAST": -0.4071428571428572
+            }
+          },
+          {
+            "depth": 10,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "NORTH": -0.7055410248958637,
+              "EAST": -0.7055410248958637
+            }
+          }
+        ],
+        "preferences": {
+          "A": [
+            "SOUTH",
+            "EAST",
+            "NORTH",
+            "WEST"
+          ],
+          "B": [
+            "SOUTH",
+            "WEST",
+            "NORTH",
+            "EAST"
+          ]
+        },
+        "time": 0.9601746000043931
+      }
+    },
+    {
+      "case": "arena_open",
+      "engine": "baseline",
+      "perspective": "A",
+      "action": "SOUTH",
+      "elapsed": 0.951725400002033,
+      "search": {
+        "engine": "GBFS",
+        "perspective": "A",
+        "depth": 50,
+        "nodes": 72750,
+        "time": 0.9503282999939984,
+        "window": 0
+      }
+    },
+    {
+      "case": "arena_open",
+      "engine": "baseline",
+      "perspective": "B",
+      "action": "SOUTH",
+      "elapsed": 0.9512967000046046,
+      "search": {
+        "engine": "GBFS",
+        "perspective": "B",
+        "depth": 50,
+        "nodes": 80376,
+        "time": 0.9501942999995663,
+        "window": 0
+      }
+    },
+    {
+      "case": "capacity_lab",
+      "engine": "rewrite",
+      "perspective": "A",
+      "action": "SOUTH",
+      "elapsed": 0.964595500001451,
+      "search": {
+        "engine": "simultaneous-maximin",
+        "perspective": "A",
+        "depth": 8,
+        "window": 8,
+        "nodes": 9022,
+        "cache_hits": 2031,
+        "roots": {
+          "SOUTH": {
+            "value": 0.3296124510410225,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "WEST",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "EAST",
+                "immediate_value": 0.040760869565217406,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.040760869565217406,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ]
+              }
+            ]
+          },
+          "EAST": {
+            "value": 0.3296124510410225,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "WEST",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "EAST",
+                "immediate_value": 0.040760869565217406,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.040760869565217406,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ]
+              }
+            ]
+          },
+          "WEST": {
+            "value": -0.46671554252199415,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.040760869565217406,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.040760869565217406,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "WEST",
+                "immediate_value": -0.040760869565217406,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.040760869565217406,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "EAST",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ]
+              }
+            ]
+          }
+        },
+        "iterations": [
+          {
+            "depth": 1,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "WEST": -0.040760869565217406
+            }
+          },
+          {
+            "depth": 2,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "WEST": -0.04627432368296153
+            }
+          },
+          {
+            "depth": 3,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "WEST": -0.052989130434782594
+            }
+          },
+          {
+            "depth": 4,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "WEST": -0.06128221244500315
+            }
+          },
+          {
+            "depth": 5,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "WEST": -0.07169117647058831
+            }
+          },
+          {
+            "depth": 6,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "WEST": -0.08500435919790755
+            }
+          },
+          {
+            "depth": 7,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": 0.0,
+              "WEST": -0.10241596638655448
+            }
+          },
+          {
+            "depth": 8,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.3296124510410225,
+              "EAST": 0.3296124510410225,
+              "WEST": -0.46671554252199415
+            }
+          }
+        ],
+        "preferences": {
+          "A": [
+            "SOUTH",
+            "EAST",
+            "WEST"
+          ],
+          "B": [
+            "SOUTH",
+            "WEST",
+            "EAST"
+          ]
+        },
+        "time": 0.9601311000005808
+      }
+    },
+    {
+      "case": "capacity_lab",
+      "engine": "rewrite",
+      "perspective": "B",
+      "action": "SOUTH",
+      "elapsed": 0.9642545000024256,
+      "search": {
+        "engine": "simultaneous-maximin",
+        "perspective": "B",
+        "depth": 8,
+        "window": 8,
+        "nodes": 8363,
+        "cache_hits": 1736,
+        "roots": {
+          "SOUTH": {
+            "value": -0.3296124510410225,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.040760869565217406,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.040760869565217406,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              }
+            ]
+          },
+          "WEST": {
+            "value": -0.3296124510410225,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "WEST",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "WEST",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "WEST",
+                "immediate_value": 0.040760869565217406,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.040760869565217406,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ]
+              }
+            ]
+          },
+          "EAST": {
+            "value": -0.7983481955832187,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "EAST",
+                "immediate_value": -0.040760869565217406,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.040760869565217406,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "EAST",
+                "immediate_value": -0.040760869565217406,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.040760869565217406,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "EAST",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ]
+              }
+            ]
+          }
+        },
+        "iterations": [
+          {
+            "depth": 1,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "EAST": -0.040760869565217406
+            }
+          },
+          {
+            "depth": 2,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "EAST": -0.04627432368296153
+            }
+          },
+          {
+            "depth": 3,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "EAST": -0.052989130434782594
+            }
+          },
+          {
+            "depth": 4,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "EAST": -0.06128221244500315
+            }
+          },
+          {
+            "depth": 5,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "EAST": -0.07169117647058831
+            }
+          },
+          {
+            "depth": 6,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "EAST": -0.08500435919790755
+            }
+          },
+          {
+            "depth": 7,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.0,
+              "EAST": -0.10241596638655448
+            }
+          },
+          {
+            "depth": 8,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.3296124510410225,
+              "WEST": -0.3296124510410225,
+              "EAST": -0.7983481955832187
+            }
+          }
+        ],
+        "preferences": {
+          "A": [
+            "SOUTH",
+            "EAST",
+            "WEST"
+          ],
+          "B": [
+            "SOUTH",
+            "WEST",
+            "EAST"
+          ]
+        },
+        "time": 0.9601062999936403
+      }
+    },
+    {
+      "case": "capacity_lab",
+      "engine": "baseline",
+      "perspective": "A",
+      "action": "SOUTH",
+      "elapsed": 0.951411800000642,
+      "search": {
+        "engine": "GBFS",
+        "perspective": "A",
+        "depth": 20,
+        "nodes": 50144,
+        "time": 0.950308599996788,
+        "window": 0
+      }
+    },
+    {
+      "case": "capacity_lab",
+      "engine": "baseline",
+      "perspective": "B",
+      "action": "SOUTH",
+      "elapsed": 0.9528060000011465,
+      "search": {
+        "engine": "GBFS",
+        "perspective": "B",
+        "depth": 38,
+        "nodes": 41161,
+        "time": 0.9508170999979484,
+        "window": 0
+      }
+    },
+    {
+      "case": "dense_goals",
+      "engine": "rewrite",
+      "perspective": "A",
+      "action": "SOUTH",
+      "elapsed": 0.9640782000060426,
+      "search": {
+        "engine": "simultaneous-maximin",
+        "perspective": "A",
+        "depth": 7,
+        "window": 7,
+        "nodes": 8291,
+        "cache_hits": 2189,
+        "roots": {
+          "SOUTH": {
+            "value": -0.13189307351593527,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.04625237191650844,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.04625237191650844,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "WEST",
+                "immediate_value": -0.04625237191650844,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.04625237191650844,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "NORTH",
+                "immediate_value": 0.038751987281399114,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.038751987281399114,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "EAST",
+                "immediate_value": 0.038751987281399114,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.038751987281399114,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              }
+            ]
+          },
+          "EAST": {
+            "value": -0.13189307351593527,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.04625237191650844,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.04625237191650844,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "WEST",
+                "immediate_value": -0.04625237191650844,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.04625237191650844,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "NORTH",
+                "immediate_value": 0.038751987281399114,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.038751987281399114,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "EAST",
+                "immediate_value": 0.038751987281399114,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.038751987281399114,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              }
+            ]
+          },
+          "NORTH": {
+            "value": -0.24420433364398883,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.16872479838709675,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.16872479838709675,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "WEST",
+                "immediate_value": -0.16872479838709675,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.16872479838709675,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "NORTH",
+                "immediate_value": -0.0329391891891892,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.0329391891891892,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "EAST",
+                "immediate_value": -0.0329391891891892,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.0329391891891892,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              }
+            ]
+          },
+          "WEST": {
+            "value": -0.24420433364398883,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.16872479838709675,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.16872479838709675,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "WEST",
+                "immediate_value": -0.16872479838709675,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.16872479838709675,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "NORTH",
+                "immediate_value": -0.0329391891891892,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.0329391891891892,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "EAST",
+                "immediate_value": -0.0329391891891892,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.0329391891891892,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              }
+            ]
+          }
+        },
+        "iterations": [
+          {
+            "depth": 1,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.04625237191650844,
+              "EAST": -0.04625237191650844,
+              "NORTH": -0.16872479838709675,
+              "WEST": -0.16872479838709675
+            }
+          },
+          {
+            "depth": 2,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.05616359447004604,
+              "EAST": -0.05616359447004604,
+              "NORTH": -0.19606660231660222,
+              "WEST": -0.19606660231660222
+            }
+          },
+          {
+            "depth": 3,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.6805803571428573,
+              "EAST": -0.6805803571428573,
+              "NORTH": -0.7659650735294117,
+              "WEST": -0.7854963235294117
+            }
+          },
+          {
+            "depth": 4,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.021513605442176904,
+              "EAST": -0.021513605442176904,
+              "NORTH": -0.7548739119303636,
+              "WEST": -0.7548739119303636
+            }
+          },
+          {
+            "depth": 5,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.023413930789707167,
+              "EAST": -0.023413930789707167,
+              "NORTH": -0.7604037267080747,
+              "WEST": -0.7604037267080747
+            }
+          },
+          {
+            "depth": 6,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.08719113372093024,
+              "EAST": -0.08719113372093024,
+              "NORTH": -0.22227202868852458,
+              "WEST": -0.22227202868852458
+            }
+          },
+          {
+            "depth": 7,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.13189307351593527,
+              "EAST": -0.13189307351593527,
+              "NORTH": -0.24420433364398883,
+              "WEST": -0.24420433364398883
+            }
+          }
+        ],
+        "preferences": {
+          "A": [
+            "SOUTH",
+            "EAST",
+            "NORTH",
+            "WEST"
+          ],
+          "B": [
+            "SOUTH",
+            "WEST",
+            "NORTH",
+            "EAST"
+          ]
+        },
+        "time": 0.9601629999961006
+      }
+    },
+    {
+      "case": "dense_goals",
+      "engine": "rewrite",
+      "perspective": "B",
+      "action": "WEST",
+      "elapsed": 0.963217699994857,
+      "search": {
+        "engine": "simultaneous-maximin",
+        "perspective": "B",
+        "depth": 7,
+        "window": 7,
+        "nodes": 6608,
+        "cache_hits": 1486,
+        "roots": {
+          "WEST": {
+            "value": 0.10719113372093023,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "WEST",
+                "immediate_value": 0.04625237191650844,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.04625237191650844,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "WEST",
+                "immediate_value": 0.04625237191650844,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.04625237191650844,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "WEST",
+                "immediate_value": 0.16872479838709675,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.16872479838709675,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "WEST",
+                "immediate_value": 0.16872479838709675,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.16872479838709675,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              }
+            ]
+          },
+          "SOUTH": {
+            "value": 0.10719113372093023,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.04625237191650844,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.04625237191650844,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.04625237191650844,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.04625237191650844,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.16872479838709675,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.16872479838709675,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.16872479838709675,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.16872479838709675,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "NORTH",
+                  "EAST"
+                ]
+              }
+            ]
+          },
+          "NORTH": {
+            "value": -0.06701800158890653,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "NORTH",
+                "immediate_value": -0.038751987281399114,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.038751987281399114,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "NORTH",
+                "immediate_value": -0.038751987281399114,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.038751987281399114,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "NORTH",
+                "immediate_value": 0.0329391891891892,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.0329391891891892,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "NORTH",
+                "immediate_value": 0.0329391891891892,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.0329391891891892,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              }
+            ]
+          },
+          "EAST": {
+            "value": -0.06701800158890653,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "EAST",
+                "immediate_value": -0.038751987281399114,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.038751987281399114,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "EAST",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "EAST",
+                "immediate_value": -0.038751987281399114,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.038751987281399114,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "EAST",
+                "immediate_value": 0.0329391891891892,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.0329391891891892,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "EAST",
+                "immediate_value": 0.0329391891891892,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.0329391891891892,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST",
+                  "NORTH"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST",
+                  "NORTH"
+                ]
+              }
+            ]
+          }
+        },
+        "iterations": [
+          {
+            "depth": 1,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.04625237191650844,
+              "WEST": 0.04625237191650844,
+              "NORTH": -0.038751987281399114,
+              "EAST": -0.038751987281399114
+            }
+          },
+          {
+            "depth": 2,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.05616359447004604,
+              "WEST": 0.05616359447004604,
+              "NORTH": -0.04625237191650844,
+              "EAST": -0.04625237191650844
+            }
+          },
+          {
+            "depth": 3,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.6805803571428573,
+              "WEST": 0.6805803571428573,
+              "NORTH": -0.05616359447004604,
+              "EAST": -0.05616359447004604
+            }
+          },
+          {
+            "depth": 4,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.021513605442176904,
+              "WEST": 0.021513605442176904,
+              "NORTH": -0.7196428571428573,
+              "EAST": -0.7196428571428573
+            }
+          },
+          {
+            "depth": 5,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.023413930789707167,
+              "WEST": 0.023413930789707167,
+              "NORTH": -0.05640943877551024,
+              "EAST": -0.05640943877551024
+            }
+          },
+          {
+            "depth": 6,
+            "action": "WEST",
+            "values": {
+              "SOUTH": 0.05656442012288788,
+              "WEST": 0.08719113372093024,
+              "NORTH": -0.0575267425810904,
+              "EAST": -0.0575267425810904
+            }
+          },
+          {
+            "depth": 7,
+            "action": "WEST",
+            "values": {
+              "WEST": 0.10719113372093023,
+              "SOUTH": 0.10719113372093023,
+              "NORTH": -0.06701800158890653,
+              "EAST": -0.06701800158890653
+            }
+          }
+        ],
+        "preferences": {
+          "A": [
+            "SOUTH",
+            "EAST",
+            "NORTH",
+            "WEST"
+          ],
+          "B": [
+            "SOUTH",
+            "WEST",
+            "NORTH",
+            "EAST"
+          ]
+        },
+        "time": 0.9601852999985567
+      }
+    },
+    {
+      "case": "dense_goals",
+      "engine": "baseline",
+      "perspective": "A",
+      "action": "EAST",
+      "elapsed": 0.9521805999975186,
+      "search": {
+        "engine": "GBFS",
+        "perspective": "A",
+        "depth": 43,
+        "nodes": 29040,
+        "time": 0.9512350000004517,
+        "window": 0
+      }
+    },
+    {
+      "case": "dense_goals",
+      "engine": "baseline",
+      "perspective": "B",
+      "action": "WEST",
+      "elapsed": 0.9513837999984389,
+      "search": {
+        "engine": "GBFS",
+        "perspective": "B",
+        "depth": 20,
+        "nodes": 29915,
+        "time": 0.9501815000039642,
+        "window": 0
+      }
+    },
+    {
+      "case": "corridors",
+      "engine": "rewrite",
+      "perspective": "A",
+      "action": "SOUTH",
+      "elapsed": 0.965217400000256,
+      "search": {
+        "engine": "simultaneous-maximin",
+        "perspective": "A",
+        "depth": 10,
+        "window": 10,
+        "nodes": 13038,
+        "cache_hits": 5709,
+        "roots": {
+          "SOUTH": {
+            "value": -0.0025000000000000005,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "NORTH",
+                "immediate_value": 0.08500435919790755,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.08500435919790755,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "EAST",
+                "immediate_value": 0.08500435919790755,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.08500435919790755,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "WEST",
+                "immediate_value": 0.08500435919790755,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.08500435919790755,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              }
+            ]
+          },
+          "EAST": {
+            "value": -0.0025000000000000005,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.08500435919790755,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.08500435919790755,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "NORTH",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "EAST",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "WEST",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              }
+            ]
+          },
+          "NORTH": {
+            "value": -0.0025000000000000005,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.08500435919790755,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.08500435919790755,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "NORTH",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "EAST",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "WEST",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              }
+            ]
+          },
+          "WEST": {
+            "value": -0.0025000000000000005,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.08500435919790755,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.08500435919790755,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "NORTH",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "EAST",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "WEST",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              }
+            ]
+          }
+        },
+        "iterations": [
+          {
+            "depth": 1,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "NORTH": -0.08500435919790755,
+              "EAST": -0.08500435919790755,
+              "WEST": -0.08500435919790755
+            }
+          },
+          {
+            "depth": 2,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "NORTH": -0.10241596638655448,
+              "EAST": -0.10241596638655448,
+              "WEST": -0.10241596638655448
+            }
+          },
+          {
+            "depth": 3,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "NORTH": -0.5273498708802031,
+              "EAST": -0.5253296688600011,
+              "WEST": -0.5273498708802031
+            }
+          },
+          {
+            "depth": 4,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": -0.5365959821428572,
+              "NORTH": -0.5365959821428572,
+              "WEST": -0.5365959821428572
+            }
+          },
+          {
+            "depth": 5,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": -0.14233535678360731,
+              "NORTH": -0.14233535678360731,
+              "WEST": -0.14233535678360731
+            }
+          },
+          {
+            "depth": 6,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": -0.15081941451149428,
+              "NORTH": -0.15081941451149428,
+              "WEST": -0.15081941451149428
+            }
+          },
+          {
+            "depth": 7,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": -0.15499254843517135,
+              "NORTH": -0.15499254843517135,
+              "WEST": -0.15499254843517135
+            }
+          },
+          {
+            "depth": 8,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": -0.1601652298850575,
+              "NORTH": -0.1601652298850575,
+              "WEST": -0.1601652298850575
+            }
+          },
+          {
+            "depth": 9,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.0,
+              "EAST": -0.17168625025767886,
+              "NORTH": -0.17168625025767886,
+              "WEST": -0.17168625025767886
+            }
+          },
+          {
+            "depth": 10,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0025000000000000005,
+              "EAST": -0.0025000000000000005,
+              "NORTH": -0.0025000000000000005,
+              "WEST": -0.0025000000000000005
+            }
+          }
+        ],
+        "preferences": {
+          "A": [
+            "SOUTH",
+            "NORTH",
+            "EAST",
+            "WEST"
+          ],
+          "B": [
+            "SOUTH",
+            "NORTH",
+            "EAST",
+            "WEST"
+          ]
+        },
+        "time": 0.9602586999972118
+      }
+    },
+    {
+      "case": "corridors",
+      "engine": "rewrite",
+      "perspective": "B",
+      "action": "SOUTH",
+      "elapsed": 0.9669627999974182,
+      "search": {
+        "engine": "simultaneous-maximin",
+        "perspective": "B",
+        "depth": 10,
+        "window": 10,
+        "nodes": 13271,
+        "cache_hits": 5724,
+        "roots": {
+          "SOUTH": {
+            "value": -0.0025000000000000005,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.08500435919790755,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.08500435919790755,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.08500435919790755,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.08500435919790755,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.08500435919790755,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.08500435919790755,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ]
+              }
+            ]
+          },
+          "WEST": {
+            "value": -0.0025000000000000005,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "WEST",
+                "immediate_value": -0.08500435919790755,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.08500435919790755,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "WEST",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "WEST",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "WEST",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ]
+              }
+            ]
+          },
+          "NORTH": {
+            "value": -0.0025000000000000005,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "NORTH",
+                "immediate_value": -0.08500435919790755,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.08500435919790755,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "NORTH",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "NORTH",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "NORTH",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ]
+              }
+            ]
+          },
+          "EAST": {
+            "value": -0.0025000000000000005,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "SOUTH",
+                "executed_b": "EAST",
+                "immediate_value": -0.08500435919790755,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.08500435919790755,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "SOUTH",
+                  "NORTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "NORTH",
+                "conflict": false,
+                "executed_a": "NORTH",
+                "executed_b": "EAST",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "NORTH",
+                  "SOUTH",
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "EAST",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "EAST",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "SOUTH",
+                  "NORTH",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "NORTH",
+                  "WEST"
+                ]
+              }
+            ]
+          }
+        },
+        "iterations": [
+          {
+            "depth": 1,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "NORTH": -0.08500435919790755,
+              "EAST": -0.08500435919790755,
+              "WEST": -0.08500435919790755
+            }
+          },
+          {
+            "depth": 2,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "NORTH": -0.10241596638655448,
+              "EAST": -0.10241596638655448,
+              "WEST": -0.10241596638655448
+            }
+          },
+          {
+            "depth": 3,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "NORTH": -0.5273498708802031,
+              "EAST": -0.5273498708802031,
+              "WEST": -0.5253296688600011
+            }
+          },
+          {
+            "depth": 4,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.5365959821428572,
+              "NORTH": -0.5365959821428572,
+              "EAST": -0.5365959821428572
+            }
+          },
+          {
+            "depth": 5,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.14233535678360731,
+              "NORTH": -0.14233535678360731,
+              "EAST": -0.14233535678360731
+            }
+          },
+          {
+            "depth": 6,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.15081941451149428,
+              "NORTH": -0.15081941451149428,
+              "EAST": -0.15081941451149428
+            }
+          },
+          {
+            "depth": 7,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.15499254843517135,
+              "NORTH": -0.15499254843517135,
+              "EAST": -0.15499254843517135
+            }
+          },
+          {
+            "depth": 8,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.1601652298850575,
+              "NORTH": -0.1601652298850575,
+              "EAST": -0.1601652298850575
+            }
+          },
+          {
+            "depth": 9,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0,
+              "WEST": -0.17168625025767886,
+              "NORTH": -0.17168625025767886,
+              "EAST": -0.17168625025767886
+            }
+          },
+          {
+            "depth": 10,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": -0.0025000000000000005,
+              "WEST": -0.0025000000000000005,
+              "NORTH": -0.0025000000000000005,
+              "EAST": -0.0025000000000000005
+            }
+          }
+        ],
+        "preferences": {
+          "A": [
+            "SOUTH",
+            "NORTH",
+            "EAST",
+            "WEST"
+          ],
+          "B": [
+            "SOUTH",
+            "NORTH",
+            "EAST",
+            "WEST"
+          ]
+        },
+        "time": 0.9601766999985557
+      }
+    },
+    {
+      "case": "corridors",
+      "engine": "baseline",
+      "perspective": "A",
+      "action": "EAST",
+      "elapsed": 0.9516163999942364,
+      "search": {
+        "engine": "GBFS",
+        "perspective": "A",
+        "depth": 50,
+        "nodes": 37100,
+        "time": 0.9506681999991997,
+        "window": 0
+      }
+    },
+    {
+      "case": "corridors",
+      "engine": "baseline",
+      "perspective": "B",
+      "action": "WEST",
+      "elapsed": 0.9546913999947719,
+      "search": {
+        "engine": "GBFS",
+        "perspective": "B",
+        "depth": 46,
+        "nodes": 53728,
+        "time": 0.9525533999985782,
+        "window": 0
+      }
+    },
+    {
+      "case": "test_race",
+      "engine": "rewrite",
+      "perspective": "A",
+      "action": "WEST",
+      "elapsed": 0.9683581999997841,
+      "search": {
+        "engine": "simultaneous-maximin",
+        "perspective": "A",
+        "depth": 19,
+        "window": 19,
+        "nodes": 12631,
+        "cache_hits": 22238,
+        "roots": {
+          "WEST": {
+            "value": -0.9,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.2005220692928334,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.2005220692928334,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "WEST",
+                "immediate_value": -0.2005220692928334,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.2005220692928334,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "EAST",
+                "immediate_value": 0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ]
+              }
+            ]
+          },
+          "EAST": {
+            "value": -0.9,
+            "replies": [
+              {
+                "reply": "SOUTH",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "SOUTH",
+                "immediate_value": -0.37790697674418605,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.37790697674418605,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "WEST",
+                "immediate_value": -0.37790697674418605,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.37790697674418605,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "EAST",
+                "immediate_value": -0.17486085343228203,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.17486085343228203,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ]
+              }
+            ]
+          }
+        },
+        "iterations": [
+          {
+            "depth": 1,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.2005220692928334,
+              "EAST": -0.37790697674418605
+            }
+          },
+          {
+            "depth": 2,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.21637228260869565,
+              "EAST": -0.40625
+            }
+          },
+          {
+            "depth": 3,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.23491514770584537,
+              "EAST": -0.4391891891891892
+            }
+          },
+          {
+            "depth": 4,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.25689338235294124,
+              "EAST": -0.4779411764705883
+            }
+          },
+          {
+            "depth": 5,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.28334786399302525,
+              "EAST": -0.5241935483870968
+            }
+          },
+          {
+            "depth": 6,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.31578256302521,
+              "EAST": -0.31578256302521
+            }
+          },
+          {
+            "depth": 7,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.9666666666666667,
+              "EAST": -0.9666666666666667
+            }
+          },
+          {
+            "depth": 8,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.95,
+              "EAST": -0.95
+            }
+          },
+          {
+            "depth": 9,
+            "action": "EAST",
+            "values": {
+              "WEST": -0.9666666666666667,
+              "EAST": -0.9
+            }
+          },
+          {
+            "depth": 10,
+            "action": "EAST",
+            "values": {
+              "EAST": -0.5803571428571428,
+              "WEST": -0.95
+            }
+          },
+          {
+            "depth": 11,
+            "action": "WEST",
+            "values": {
+              "EAST": -0.9,
+              "WEST": -0.9
+            }
+          },
+          {
+            "depth": 12,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.5803571428571428,
+              "EAST": -0.5803571428571428
+            }
+          },
+          {
+            "depth": 13,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.9,
+              "EAST": -0.9
+            }
+          },
+          {
+            "depth": 14,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.5803571428571428,
+              "EAST": -0.5803571428571428
+            }
+          },
+          {
+            "depth": 15,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.9,
+              "EAST": -0.9
+            }
+          },
+          {
+            "depth": 16,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.5803571428571428,
+              "EAST": -0.5803571428571428
+            }
+          },
+          {
+            "depth": 17,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.9,
+              "EAST": -0.9
+            }
+          },
+          {
+            "depth": 18,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.5803571428571428,
+              "EAST": -0.5803571428571428
+            }
+          },
+          {
+            "depth": 19,
+            "action": "WEST",
+            "values": {
+              "WEST": -0.9,
+              "EAST": -0.9
+            }
+          }
+        ],
+        "preferences": {
+          "A": [
+            "WEST",
+            "EAST"
+          ],
+          "B": [
+            "SOUTH",
+            "WEST",
+            "EAST"
+          ]
+        },
+        "time": 0.9601154000047245
+      }
+    },
+    {
+      "case": "test_race",
+      "engine": "rewrite",
+      "perspective": "B",
+      "action": "SOUTH",
+      "elapsed": 0.9702572000023792,
+      "search": {
+        "engine": "simultaneous-maximin",
+        "perspective": "B",
+        "depth": 17,
+        "window": 17,
+        "nodes": 17299,
+        "cache_hits": 16452,
+        "roots": {
+          "SOUTH": {
+            "value": 0.9,
+            "replies": [
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.2005220692928334,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.2005220692928334,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "SOUTH",
+                "immediate_value": 0.37790697674418605,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.37790697674418605,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "SOUTH",
+                  "WEST",
+                  "EAST"
+                ]
+              }
+            ]
+          },
+          "WEST": {
+            "value": 0.9,
+            "replies": [
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "WEST",
+                "immediate_value": 0.2005220692928334,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.2005220692928334,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "WEST",
+                "immediate_value": 0.37790697674418605,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.37790697674418605,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "WEST",
+                  "SOUTH",
+                  "EAST"
+                ]
+              }
+            ]
+          },
+          "EAST": {
+            "value": -0.0,
+            "replies": [
+              {
+                "reply": "WEST",
+                "conflict": false,
+                "executed_a": "WEST",
+                "executed_b": "EAST",
+                "immediate_value": -0.0,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": 0.0,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "WEST",
+                  "EAST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ]
+              },
+              {
+                "reply": "EAST",
+                "conflict": false,
+                "executed_a": "EAST",
+                "executed_b": "EAST",
+                "immediate_value": 0.17486085343228203,
+                "components_a": {
+                  "credit": 0.0,
+                  "opportunity": -0.17486085343228203,
+                  "pressure": 0.0
+                },
+                "preferences_a": [
+                  "EAST",
+                  "WEST"
+                ],
+                "preferences_b": [
+                  "EAST",
+                  "SOUTH",
+                  "WEST"
+                ]
+              }
+            ]
+          }
+        },
+        "iterations": [
+          {
+            "depth": 1,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.2005220692928334,
+              "WEST": 0.2005220692928334,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 2,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.21637228260869565,
+              "WEST": 0.21637228260869565,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 3,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.23491514770584537,
+              "WEST": 0.23491514770584537,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 4,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.25689338235294124,
+              "WEST": 0.25689338235294124,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 5,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.28334786399302525,
+              "WEST": 0.28334786399302525,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 6,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.31578256302521,
+              "WEST": 0.31578256302521,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 7,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.9666666666666667,
+              "WEST": 0.9666666666666667,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 8,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.95,
+              "WEST": 0.95,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 9,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.9,
+              "WEST": 0.9,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 10,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.5803571428571428,
+              "WEST": 0.5803571428571428,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 11,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.9,
+              "WEST": 0.9,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 12,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.5803571428571428,
+              "WEST": 0.5803571428571428,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 13,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.9,
+              "WEST": 0.9,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 14,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.5803571428571428,
+              "WEST": 0.5803571428571428,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 15,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.9,
+              "WEST": 0.9,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 16,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.5803571428571428,
+              "WEST": 0.5803571428571428,
+              "EAST": -0.0
+            }
+          },
+          {
+            "depth": 17,
+            "action": "SOUTH",
+            "values": {
+              "SOUTH": 0.9,
+              "WEST": 0.9,
+              "EAST": -0.0
+            }
+          }
+        ],
+        "preferences": {
+          "A": [
+            "WEST",
+            "EAST"
+          ],
+          "B": [
+            "SOUTH",
+            "WEST",
+            "EAST"
+          ]
+        },
+        "time": 0.9601418000020203
+      }
+    },
+    {
+      "case": "test_race",
+      "engine": "baseline",
+      "perspective": "A",
+      "action": "WEST",
+      "elapsed": 0.4481230000019423,
+      "search": {
+        "engine": "GBFS",
+        "perspective": "A",
+        "depth": 50,
+        "nodes": 12459,
+        "time": 0.44711419999657664,
+        "window": 3
+      }
+    },
+    {
+      "case": "test_race",
+      "engine": "baseline",
+      "perspective": "B",
+      "action": "SOUTH",
+      "elapsed": 0.571848300001875,
+      "search": {
+        "engine": "GBFS",
+        "perspective": "B",
+        "depth": 50,
+        "nodes": 36167,
+        "time": 0.5705594000028213,
+        "window": 3
+      }
+    }
+  ],
+  "matches": []
+}

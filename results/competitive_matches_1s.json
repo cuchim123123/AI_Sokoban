@@ -1,0 +1,4556 @@
+{
+  "budget": 1.0,
+  "rounds": 30,
+  "baseline_dir": "C:\\Users\\PROTEC~1\\AppData\\Local\\Temp\\sokoban-before-rewrite-20261008-202809\\competitive",
+  "baseline_repair": "missing _joint_prefs -> _round_prefs_for, in memory only",
+  "decisions": [],
+  "matches": [
+    {
+      "case": "capacity_lab",
+      "rewrite_side": "A",
+      "score_a": 1,
+      "score_b": 1,
+      "turns": [
+        {
+          "step": 0,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "WEST",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.984144699999888,
+            "B": 0.9508305000053952
+          },
+          "completed_depth": {
+            "A": 8,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 1,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "SOUTH",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "SOUTH",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9839399999982561,
+            "B": 0.950923899996269
+          },
+          "completed_depth": {
+            "A": 8,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 2,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "SOUTH",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "SOUTH",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9865105999997468,
+            "B": 1.0119663000004948
+          },
+          "completed_depth": {
+            "A": 7,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 3,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "WEST",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9855716000020038,
+            "B": 1.0603812000044854
+          },
+          "completed_depth": {
+            "A": 7,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 4,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "WEST",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9954552999988664,
+            "B": 0.9510587999975542
+          },
+          "completed_depth": {
+            "A": 8,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 5,
+          "submitted": {
+            "A": "WEST",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "NORTH",
+              "EAST",
+              "SOUTH"
+            ],
+            "B": [
+              "EAST",
+              "WEST",
+              "SOUTH",
+              "NORTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.984146899994812,
+            "B": 0.9507034000052954
+          },
+          "completed_depth": {
+            "A": 7,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 6,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "WEST",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9845353999990039,
+            "B": 0.9509037999960128
+          },
+          "completed_depth": {
+            "A": 7,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 7,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "SOUTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 1.1696947999953409,
+            "B": 0.9507404999967548
+          },
+          "completed_depth": {
+            "A": 7,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 8,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "WEST",
+              "EAST"
+            ],
+            "B": [
+              "EAST",
+              "NORTH",
+              "SOUTH",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9863527000052272,
+            "B": 0.9515706999955
+          },
+          "completed_depth": {
+            "A": 6,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 9,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9885221000004094,
+            "B": 0.950614499997755
+          },
+          "completed_depth": {
+            "A": 6,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 10,
+          "submitted": {
+            "A": "WEST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "NORTH",
+              "EAST"
+            ],
+            "B": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.987417500000447,
+            "B": 0.9508717999997316
+          },
+          "completed_depth": {
+            "A": 7,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 11,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9899322999990545,
+            "B": 0.9505559999961406
+          },
+          "completed_depth": {
+            "A": 8,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 12,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "SOUTH",
+              "EAST",
+              "NORTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9884212000033585,
+            "B": 0.951183500001207
+          },
+          "completed_depth": {
+            "A": 8,
+            "B": 2
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 13,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9899201000007452,
+            "B": 0.950535600000876
+          },
+          "completed_depth": {
+            "A": 8,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 14,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9936013000042294,
+            "B": 0.9514505000042845
+          },
+          "completed_depth": {
+            "A": 8,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 15,
+          "submitted": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9846933000007994,
+            "B": 0.856832099998428
+          },
+          "completed_depth": {
+            "A": 8,
+            "B": 2
+          },
+          "conflict": false,
+          "score": [
+            2,
+            1
+          ]
+        },
+        {
+          "step": 16,
+          "submitted": {
+            "A": "NORTH",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "NORTH",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "NORTH",
+              "WEST",
+              "EAST"
+            ],
+            "B": [
+              "SOUTH",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9855692000055569,
+            "B": 0.9512581000017235
+          },
+          "completed_depth": {
+            "A": 9,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            2,
+            1
+          ]
+        },
+        {
+          "step": 17,
+          "submitted": {
+            "A": "NORTH",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "NORTH",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "NORTH",
+              "EAST",
+              "SOUTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.985614599994733,
+            "B": 0.6003519000005326
+          },
+          "completed_depth": {
+            "A": 8,
+            "B": 2
+          },
+          "conflict": false,
+          "score": [
+            2,
+            1
+          ]
+        },
+        {
+          "step": 18,
+          "submitted": {
+            "A": "NORTH",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "NORTH",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "NORTH",
+              "EAST",
+              "SOUTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9978246000027866,
+            "B": 0.9507288000022527
+          },
+          "completed_depth": {
+            "A": 8,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 19,
+          "submitted": {
+            "A": "EAST",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "SOUTH",
+              "WEST",
+              "NORTH"
+            ],
+            "B": [
+              "NORTH",
+              "WEST",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9867489000025671,
+            "B": 0.9515285000015865
+          },
+          "completed_depth": {
+            "A": 7,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 20,
+          "submitted": {
+            "A": "EAST",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "SOUTH",
+              "WEST",
+              "NORTH"
+            ],
+            "B": [
+              "NORTH",
+              "WEST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9866774999973131,
+            "B": 0.9516719000021112
+          },
+          "completed_depth": {
+            "A": 8,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 21,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9847496000002138,
+            "B": 0.9509676000016043
+          },
+          "completed_depth": {
+            "A": 8,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 22,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "WEST",
+              "NORTH",
+              "SOUTH"
+            ],
+            "B": [
+              "WEST",
+              "SOUTH",
+              "EAST",
+              "NORTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.5210547000024235,
+            "B": 0.9334651000026497
+          },
+          "completed_depth": {
+            "A": 8,
+            "B": 3
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 23,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "WEST",
+              "NORTH",
+              "SOUTH"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.8017928999979631,
+            "B": 0.9507654999979422
+          },
+          "completed_depth": {
+            "A": 7,
+            "B": 2
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 24,
+          "submitted": {
+            "A": "EAST",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "WEST",
+              "NORTH",
+              "SOUTH"
+            ],
+            "B": [
+              "NORTH",
+              "SOUTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.27797149999969406,
+            "B": 0.9506620000029216
+          },
+          "completed_depth": {
+            "A": 6,
+            "B": 2
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 25,
+          "submitted": {
+            "A": "NORTH",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "NORTH",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "NORTH",
+              "SOUTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "EAST",
+              "SOUTH",
+              "WEST",
+              "NORTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.12864360000094166,
+            "B": 0.9162409999989904
+          },
+          "completed_depth": {
+            "A": 5,
+            "B": 2
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 26,
+          "submitted": {
+            "A": "EAST",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "SOUTH",
+              "WEST"
+            ],
+            "B": [
+              "NORTH",
+              "SOUTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.06471479999891017,
+            "B": 0.549798699998064
+          },
+          "completed_depth": {
+            "A": 4,
+            "B": 2
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 27,
+          "submitted": {
+            "A": "EAST",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "WEST",
+              "SOUTH"
+            ],
+            "B": [
+              "NORTH",
+              "SOUTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.02006200000323588,
+            "B": 0.6462276000020211
+          },
+          "completed_depth": {
+            "A": 3,
+            "B": 2
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 28,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.006874899998365436,
+            "B": 0.33428529999946477
+          },
+          "completed_depth": {
+            "A": 2,
+            "B": 2
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 29,
+          "submitted": {
+            "A": "WEST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ],
+            "B": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.0012235000031068921,
+            "B": 0.3330830999984755
+          },
+          "completed_depth": {
+            "A": 1,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "case": "capacity_lab",
+      "rewrite_side": "B",
+      "score_a": 1,
+      "score_b": 2,
+      "turns": [
+        {
+          "step": 0,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "WEST",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9515342999948189,
+            "B": 0.982628300000215
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 8
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 1,
+          "submitted": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "SOUTH",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "WEST",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9517120999953477,
+            "B": 0.9847254999986035
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 8
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 2,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9520813999988604,
+            "B": 0.9860629000031622
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 8
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 3,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "SOUTH",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9505954000051133,
+            "B": 0.9881900999971549
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 8
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 4,
+          "submitted": {
+            "A": "NORTH",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "NORTH",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "NORTH",
+              "SOUTH",
+              "WEST",
+              "EAST"
+            ],
+            "B": [
+              "NORTH",
+              "SOUTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9518545000028098,
+            "B": 0.9856911999959266
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 7
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 5,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "SOUTH",
+              "WEST",
+              "NORTH"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9505373000065447,
+            "B": 0.9926495000036084
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 8
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 6,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "WEST",
+              "EAST",
+              "NORTH"
+            ],
+            "B": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9509023999999044,
+            "B": 0.990284999999858
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 8
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 7,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "WEST",
+              "EAST",
+              "NORTH"
+            ],
+            "B": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9549449999976787,
+            "B": 0.9881950999988476
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 8
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 8,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "WEST",
+              "NORTH",
+              "SOUTH"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "EAST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.950974799998221,
+            "B": 0.9879928000009386
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 7
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 9,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "WEST",
+              "EAST",
+              "NORTH"
+            ],
+            "B": [
+              "SOUTH",
+              "WEST",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.951245000003837,
+            "B": 1.091487199999392
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 7
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 10,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "SOUTH",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9507500999970944,
+            "B": 0.9939001000020653
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 7
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 11,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "SOUTH",
+              "WEST",
+              "NORTH"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9509790999945835,
+            "B": 0.9855815999981132
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 7
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 12,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "WEST",
+              "EAST",
+              "NORTH"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9509019999968586,
+            "B": 0.98620280000614
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 7
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 13,
+          "submitted": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "NORTH",
+              "SOUTH"
+            ],
+            "B": [
+              "WEST",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9507921999975224,
+            "B": 1.1839939999990747
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 8
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 14,
+          "submitted": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ],
+            "B": [
+              "WEST",
+              "SOUTH",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9513975999943796,
+            "B": 0.9899715999999898
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 7
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 15,
+          "submitted": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ],
+            "B": [
+              "WEST",
+              "SOUTH",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9506626999936998,
+            "B": 0.9876153000004706
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 7
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 16,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "WEST",
+              "EAST",
+              "NORTH"
+            ],
+            "B": [
+              "WEST",
+              "SOUTH",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 1.0776881000056164,
+            "B": 0.9887519000039902
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 6
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 17,
+          "submitted": {
+            "A": "WEST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ],
+            "B": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9511689999999362,
+            "B": 0.9840217000019038
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 18,
+          "submitted": {
+            "A": "NORTH",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "NORTH",
+              "WEST",
+              "SOUTH",
+              "EAST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9512795999980881,
+            "B": 0.9881504000004497
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": true,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 19,
+          "submitted": {
+            "A": "NORTH",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "NORTH",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "NORTH",
+              "EAST",
+              "SOUTH",
+              "WEST"
+            ],
+            "B": [
+              "NORTH",
+              "WEST",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9506857000014861,
+            "B": 0.9859933999978239
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 6
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 20,
+          "submitted": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "SOUTH",
+              "NORTH",
+              "EAST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 1.0380560999983572,
+            "B": 0.9878329999992275
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 6
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 21,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "WEST",
+              "NORTH",
+              "EAST"
+            ],
+            "B": [
+              "NORTH",
+              "SOUTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9511598999961279,
+            "B": 0.9839063999970676
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 6
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 22,
+          "submitted": {
+            "A": "WEST",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "EAST",
+              "NORTH"
+            ],
+            "B": [
+              "EAST",
+              "NORTH",
+              "SOUTH",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9094812000039383,
+            "B": 0.9885219000061625
+          },
+          "completed_depth": {
+            "A": 2,
+            "B": 7
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 23,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "EAST"
+            ],
+            "B": [
+              "NORTH",
+              "SOUTH",
+              "WEST",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.5904215999980806,
+            "B": 0.31014450000657234
+          },
+          "completed_depth": {
+            "A": 2,
+            "B": 7
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 24,
+          "submitted": {
+            "A": "EAST",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH"
+            ],
+            "B": [
+              "EAST",
+              "NORTH",
+              "SOUTH",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.45781419999548234,
+            "B": 0.06640989999868907
+          },
+          "completed_depth": {
+            "A": 3,
+            "B": 6
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 25,
+          "submitted": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.6194048000033945,
+            "B": 0.03344400000059977
+          },
+          "completed_depth": {
+            "A": 2,
+            "B": 5
+          },
+          "conflict": false,
+          "score": [
+            0,
+            2
+          ]
+        },
+        {
+          "step": 26,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "EAST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.421652199998789,
+            "B": 0.028521799998998176
+          },
+          "completed_depth": {
+            "A": 2,
+            "B": 4
+          },
+          "conflict": false,
+          "score": [
+            0,
+            2
+          ]
+        },
+        {
+          "step": 27,
+          "submitted": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.45102500000211876,
+            "B": 0.008390899994992651
+          },
+          "completed_depth": {
+            "A": 2,
+            "B": 3
+          },
+          "conflict": false,
+          "score": [
+            0,
+            2
+          ]
+        },
+        {
+          "step": 28,
+          "submitted": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "NORTH",
+              "WEST",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.3335092999986955,
+            "B": 0.003305700003693346
+          },
+          "completed_depth": {
+            "A": 2,
+            "B": 2
+          },
+          "conflict": false,
+          "score": [
+            0,
+            2
+          ]
+        },
+        {
+          "step": 29,
+          "submitted": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "EAST",
+              "NORTH",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.33312470000237226,
+            "B": 0.0007735000035609119
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 1
+          },
+          "conflict": false,
+          "score": [
+            1,
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "case": "dense_goals",
+      "rewrite_side": "A",
+      "score_a": 2,
+      "score_b": 1,
+      "turns": [
+        {
+          "step": 0,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "SOUTH",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.98632290000387,
+            "B": 0.9512443999992684
+          },
+          "completed_depth": {
+            "A": 7,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 1,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "SOUTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "SOUTH",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 1.0247985000023618,
+            "B": 0.9513860000006389
+          },
+          "completed_depth": {
+            "A": 7,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 2,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "SOUTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "SOUTH",
+              "EAST",
+              "NORTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9839790999976685,
+            "B": 0.9524802000014461
+          },
+          "completed_depth": {
+            "A": 6,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 3,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "WEST",
+              "EAST",
+              "NORTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9835888999950839,
+            "B": 1.1416854000053718
+          },
+          "completed_depth": {
+            "A": 5,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            0
+          ]
+        },
+        {
+          "step": 4,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "WEST",
+              "SOUTH"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9840179000020726,
+            "B": 0.951295900005789
+          },
+          "completed_depth": {
+            "A": 5,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            0
+          ]
+        },
+        {
+          "step": 5,
+          "submitted": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "SOUTH",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "WEST",
+              "EAST",
+              "NORTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9885779999967781,
+            "B": 0.9508561999973608
+          },
+          "completed_depth": {
+            "A": 5,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 6,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "NORTH",
+              "WEST",
+              "EAST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9844498000020394,
+            "B": 0.9512375999984215
+          },
+          "completed_depth": {
+            "A": 5,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            1
+          ]
+        },
+        {
+          "step": 7,
+          "submitted": {
+            "A": "EAST",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "SOUTH",
+              "WEST"
+            ],
+            "B": [
+              "EAST",
+              "WEST",
+              "SOUTH",
+              "NORTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9837870000046678,
+            "B": 0.951820599999337
+          },
+          "completed_depth": {
+            "A": 6,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            0
+          ]
+        },
+        {
+          "step": 8,
+          "submitted": {
+            "A": "EAST",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "SOUTH",
+              "WEST"
+            ],
+            "B": [
+              "NORTH",
+              "SOUTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9851781999968807,
+            "B": 0.9514057999986107
+          },
+          "completed_depth": {
+            "A": 6,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            1,
+            0
+          ]
+        },
+        {
+          "step": 9,
+          "submitted": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "SOUTH",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "NORTH",
+              "WEST",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9834874000007403,
+            "B": 0.9513537000020733
+          },
+          "completed_depth": {
+            "A": 5,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 10,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "WEST",
+              "EAST"
+            ],
+            "B": [
+              "SOUTH",
+              "WEST",
+              "EAST",
+              "NORTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9897112999969977,
+            "B": 0.9511046999978134
+          },
+          "completed_depth": {
+            "A": 5,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 11,
+          "submitted": {
+            "A": "EAST",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "EAST",
+              "NORTH",
+              "WEST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9848838000034448,
+            "B": 1.0157007000016165
+          },
+          "completed_depth": {
+            "A": 6,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 12,
+          "submitted": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "EAST",
+              "WEST",
+              "NORTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9842424000016763,
+            "B": 0.9508003000009921
+          },
+          "completed_depth": {
+            "A": 6,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 13,
+          "submitted": {
+            "A": "NORTH",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "NORTH",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "NORTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "NORTH",
+              "EAST",
+              "WEST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.983971499998006,
+            "B": 0.9509727000040584
+          },
+          "completed_depth": {
+            "A": 6,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 14,
+          "submitted": {
+            "A": "NORTH",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "NORTH",
+              "SOUTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "EAST",
+              "SOUTH",
+              "WEST",
+              "NORTH"
+            ]
+          },
+          "elapsed": {
+            "A": 1.177051799997571,
+            "B": 0.9506703000006382
+          },
+          "completed_depth": {
+            "A": 5,
+            "B": 0
+          },
+          "conflict": true,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 15,
+          "submitted": {
+            "A": "WEST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "NORTH",
+              "EAST"
+            ],
+            "B": [
+              "SOUTH",
+              "WEST",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9879817999972147,
+            "B": 1.1367286000022432
+          },
+          "completed_depth": {
+            "A": 6,
+            "B": 0
+          },
+          "conflict": true,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 16,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "WEST",
+              "NORTH"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "EAST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9858337000041502,
+            "B": 0.9509121000010055
+          },
+          "completed_depth": {
+            "A": 5,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 17,
+          "submitted": {
+            "A": "NORTH",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "NORTH",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "NORTH",
+              "WEST",
+              "EAST"
+            ],
+            "B": [
+              "NORTH",
+              "WEST",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9849178000004031,
+            "B": 0.9508112000039546
+          },
+          "completed_depth": {
+            "A": 5,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 18,
+          "submitted": {
+            "A": "NORTH",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "NORTH",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "NORTH",
+              "SOUTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "NORTH",
+              "WEST",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 1.0924072999987402,
+            "B": 0.9523704000021098
+          },
+          "completed_depth": {
+            "A": 5,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 19,
+          "submitted": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ],
+            "B": [
+              "WEST",
+              "SOUTH",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9834866000019247,
+            "B": 0.9508300000015879
+          },
+          "completed_depth": {
+            "A": 5,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 20,
+          "submitted": {
+            "A": "NORTH",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "NORTH",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "NORTH",
+              "EAST",
+              "WEST",
+              "SOUTH"
+            ],
+            "B": [
+              "SOUTH",
+              "EAST",
+              "NORTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9823161000022083,
+            "B": 0.9515437000009115
+          },
+          "completed_depth": {
+            "A": 4,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 21,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "SOUTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "EAST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9853801999997813,
+            "B": 0.9519387000036659
+          },
+          "completed_depth": {
+            "A": 5,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 22,
+          "submitted": {
+            "A": "NORTH",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "NORTH",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "NORTH",
+              "SOUTH",
+              "WEST",
+              "EAST"
+            ],
+            "B": [
+              "WEST",
+              "EAST",
+              "SOUTH",
+              "NORTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9841468000013265,
+            "B": 0.8819660000008298
+          },
+          "completed_depth": {
+            "A": 6,
+            "B": 2
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 23,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "SOUTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "EAST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9846584999977495,
+            "B": 0.6129628000053344
+          },
+          "completed_depth": {
+            "A": 6,
+            "B": 2
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 24,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "EAST",
+              "NORTH",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.18864279999979772,
+            "B": 0.7555414000016754
+          },
+          "completed_depth": {
+            "A": 6,
+            "B": 3
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 25,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "EAST",
+              "NORTH",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.05003669999859994,
+            "B": 0.5762795999980881
+          },
+          "completed_depth": {
+            "A": 5,
+            "B": 2
+          },
+          "conflict": false,
+          "score": [
+            1,
+            0
+          ]
+        },
+        {
+          "step": 26,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "EAST",
+              "NORTH",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.020283999998355284,
+            "B": 0.3876596000045538
+          },
+          "completed_depth": {
+            "A": 4,
+            "B": 3
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 27,
+          "submitted": {
+            "A": "WEST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "NORTH",
+              "EAST"
+            ],
+            "B": [
+              "SOUTH",
+              "EAST",
+              "NORTH",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.009073499997612089,
+            "B": 0.24202890000015032
+          },
+          "completed_depth": {
+            "A": 3,
+            "B": 3
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 28,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "EAST",
+              "NORTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.0035777000011876225,
+            "B": 0.33353509999869857
+          },
+          "completed_depth": {
+            "A": 2,
+            "B": 2
+          },
+          "conflict": false,
+          "score": [
+            2,
+            0
+          ]
+        },
+        {
+          "step": 29,
+          "submitted": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "NORTH",
+              "EAST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.0005784000022686087,
+            "B": 0.332960899999307
+          },
+          "completed_depth": {
+            "A": 1,
+            "B": 0
+          },
+          "conflict": false,
+          "score": [
+            2,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "case": "dense_goals",
+      "rewrite_side": "B",
+      "score_a": 0,
+      "score_b": 1,
+      "turns": [
+        {
+          "step": 0,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "SOUTH",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "SOUTH",
+              "NORTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9511017000040738,
+            "B": 0.9835195999985444
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 7
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 1,
+          "submitted": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "SOUTH",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9508855999956722,
+            "B": 0.9855861999967601
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 7
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 2,
+          "submitted": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "SOUTH",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9515294000011636,
+            "B": 0.9848958000002312
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 6
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 3,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "WEST",
+              "EAST",
+              "NORTH"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "EAST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9513522000052035,
+            "B": 0.9857654000006733
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 4,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "SOUTH",
+              "WEST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.952900000003865,
+            "B": 0.9847020000015618
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 6
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 5,
+          "submitted": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "WEST",
+              "SOUTH",
+              "NORTH"
+            ],
+            "B": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9515644999992219,
+            "B": 0.9843851000041468
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 6,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "WEST",
+              "NORTH",
+              "EAST"
+            ],
+            "B": [
+              "WEST",
+              "NORTH",
+              "SOUTH",
+              "EAST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9517021999999997,
+            "B": 0.9895519999990938
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": true,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 7,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "WEST",
+              "SOUTH",
+              "NORTH"
+            ],
+            "B": [
+              "WEST",
+              "EAST",
+              "NORTH",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9534734999979264,
+            "B": 0.9851573999985703
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 8,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "EAST",
+              "NORTH",
+              "WEST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.953321799999685,
+            "B": 0.9868082000029972
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": true,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 9,
+          "submitted": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "SOUTH",
+              "EAST",
+              "NORTH"
+            ],
+            "B": [
+              "WEST",
+              "EAST",
+              "NORTH",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9532127999991644,
+            "B": 0.9846621999968193
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 10,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "EAST",
+              "NORTH",
+              "WEST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9511923000027309,
+            "B": 0.9857686000032118
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": true,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 11,
+          "submitted": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "SOUTH",
+              "EAST",
+              "NORTH"
+            ],
+            "B": [
+              "WEST",
+              "EAST",
+              "NORTH",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9519266999996034,
+            "B": 0.9894676000039908
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 12,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "EAST",
+              "NORTH",
+              "WEST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9518644999989192,
+            "B": 0.9847800999996252
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": true,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 13,
+          "submitted": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "SOUTH",
+              "EAST",
+              "NORTH"
+            ],
+            "B": [
+              "WEST",
+              "EAST",
+              "NORTH",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9516666999988956,
+            "B": 1.2407854999983101
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 14,
+          "submitted": {
+            "A": "WEST",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "SOUTH",
+              "EAST",
+              "NORTH"
+            ],
+            "B": [
+              "EAST",
+              "NORTH",
+              "WEST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9510627999989083,
+            "B": 1.030295999997179
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 15,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "WEST",
+              "SOUTH",
+              "NORTH"
+            ],
+            "B": [
+              "WEST",
+              "EAST",
+              "NORTH",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.951986100000795,
+            "B": 0.9919728000022587
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 16,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "EAST",
+              "NORTH",
+              "WEST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9517325000051642,
+            "B": 0.9846762000015588
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": true,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 17,
+          "submitted": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "SOUTH",
+              "EAST",
+              "NORTH"
+            ],
+            "B": [
+              "WEST",
+              "EAST",
+              "NORTH",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9526261999999406,
+            "B": 0.983964900005958
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 18,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "NORTH",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "WEST",
+              "EAST"
+            ],
+            "B": [
+              "EAST",
+              "NORTH",
+              "WEST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9510172000009334,
+            "B": 1.2856437000009464
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": true,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 19,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "NORTH",
+              "WEST",
+              "EAST"
+            ],
+            "B": [
+              "WEST",
+              "EAST",
+              "NORTH",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9512806999991881,
+            "B": 0.985161299999163
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 20,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "EAST",
+              "NORTH",
+              "WEST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9507062999982736,
+            "B": 0.9914090000020224
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": true,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 21,
+          "submitted": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "EAST",
+              "NORTH",
+              "SOUTH"
+            ],
+            "B": [
+              "WEST",
+              "EAST",
+              "NORTH",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9519842000008794,
+            "B": 0.9837745000040741
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 5
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 22,
+          "submitted": {
+            "A": "WEST",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "WEST",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "WEST",
+              "SOUTH",
+              "EAST",
+              "NORTH"
+            ],
+            "B": [
+              "EAST",
+              "NORTH",
+              "WEST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9511659999989206,
+            "B": 0.9841906000001472
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 6
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 23,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "SOUTH",
+              "WEST",
+              "NORTH"
+            ],
+            "B": [
+              "WEST",
+              "EAST",
+              "NORTH",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9508911999946577,
+            "B": 0.9853244999976596
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 6
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 24,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "EAST",
+              "NORTH",
+              "WEST",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.9507595999966725,
+            "B": 0.5865170999968541
+          },
+          "completed_depth": {
+            "A": 0,
+            "B": 6
+          },
+          "conflict": true,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 25,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "EAST"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "EAST"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "EAST",
+              "WEST",
+              "NORTH"
+            ],
+            "B": [
+              "EAST",
+              "WEST",
+              "NORTH",
+              "SOUTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.44150400000216905,
+            "B": 0.16055009999399772
+          },
+          "completed_depth": {
+            "A": 2,
+            "B": 5
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 26,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "EAST",
+              "NORTH",
+              "WEST"
+            ],
+            "B": [
+              "NORTH",
+              "SOUTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.6607112999990932,
+            "B": 0.07429099999717437
+          },
+          "completed_depth": {
+            "A": 2,
+            "B": 4
+          },
+          "conflict": true,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 27,
+          "submitted": {
+            "A": "SOUTH",
+            "B": "NORTH"
+          },
+          "executed": {
+            "A": "SOUTH",
+            "B": "NORTH"
+          },
+          "preferences": {
+            "A": [
+              "SOUTH",
+              "EAST",
+              "WEST",
+              "NORTH"
+            ],
+            "B": [
+              "NORTH",
+              "SOUTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.7587711000014679,
+            "B": 0.018066300006466918
+          },
+          "completed_depth": {
+            "A": 2,
+            "B": 3
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        },
+        {
+          "step": 28,
+          "submitted": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "WEST"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "WEST",
+              "SOUTH"
+            ],
+            "B": [
+              "WEST",
+              "SOUTH",
+              "EAST",
+              "NORTH"
+            ]
+          },
+          "elapsed": {
+            "A": 0.37700730000506155,
+            "B": 0.0055302999971900135
+          },
+          "completed_depth": {
+            "A": 2,
+            "B": 2
+          },
+          "conflict": false,
+          "score": [
+            0,
+            0
+          ]
+        },
+        {
+          "step": 29,
+          "submitted": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "executed": {
+            "A": "EAST",
+            "B": "SOUTH"
+          },
+          "preferences": {
+            "A": [
+              "EAST",
+              "NORTH",
+              "SOUTH",
+              "WEST"
+            ],
+            "B": [
+              "SOUTH",
+              "NORTH",
+              "EAST",
+              "WEST"
+            ]
+          },
+          "elapsed": {
+            "A": 0.6185813999982201,
+            "B": 0.0008608999996795319
+          },
+          "completed_depth": {
+            "A": 2,
+            "B": 1
+          },
+          "conflict": false,
+          "score": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  ]
+}

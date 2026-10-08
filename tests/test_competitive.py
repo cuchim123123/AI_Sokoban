@@ -5,7 +5,7 @@ These tests pin down the observable contract instead of private helpers:
 
 * the odd/even conflict rule and the diversion rules (transition.py),
 * zero-sum evaluation with competitive race assignment (evaluation.py),
-* the GBFS agent's hard tactical constraints, time budget and telemetry
+* the simultaneous agent's decision behavior, time budget and telemetry
   (agent_a.py / agent_b.py),
 * a full-game invariant sweep through the real joint transition.
 
@@ -23,6 +23,7 @@ from src.competitive.agent_a import (
     LAST_SEARCH,
     best_action,
     history_entry,
+    round_preferences,
 )
 from src.competitive.agent_b import AgentB
 from src.competitive.evaluation import (
@@ -231,6 +232,85 @@ class TestConflictRules(unittest.TestCase):
         )
         self.assertNotIn(Action.EAST, actions)
 
+    # ── Rule 3: preference lists as conflict fallbacks ──────────────────
+
+    def test_preference_list_orders_the_loser_diversion(self):
+        # Both target (3, 2); even remaining -> B wins, A diverts along ITS
+        # submitted list: EAST conflicts with the winner, so the first
+        # COEXISTING direction of the list is taken - not an evaluate pick.
+        out = resolve_joint_action_outcome(
+            self.state((2, 2), (4, 2)), Action.EAST, Action.WEST,
+            self.board, 10,
+            prefs_a=(Action.EAST, Action.SOUTH, Action.NORTH, Action.WEST),
+        )
+        self.assertTrue(out.conflict)
+        self.assertEqual(out.resolved_action_b, Action.WEST)   # winner kept
+        self.assertEqual(out.state.agent_b, (3, 2))            # its cell kept
+        self.assertEqual(out.resolved_action_a, Action.SOUTH)  # 1st coexisting
+        self.assertEqual(out.state.agent_a, (2, 3))
+        # Same state, different list: the fallback follows THE LIST.
+        out2 = resolve_joint_action_outcome(
+            self.state((2, 2), (4, 2)), Action.EAST, Action.WEST,
+            self.board, 10,
+            prefs_a=(Action.EAST, Action.WEST, Action.NORTH),
+        )
+        self.assertEqual(out2.resolved_action_a, Action.WEST)
+        self.assertEqual(out2.state.agent_a, (1, 2))
+
+    def test_preference_fallback_rechecks_occupancy_and_boxes(self):
+        # A's EAST would push (3, 3) onto the winner's landing cell (4, 3)
+        # (7.5): the fallback is rechecked against the resulting occupancy
+        # and box movements and must skip it - the winner's action is
+        # never overturned - then take the next preferred direction.
+        out = resolve_joint_action_outcome(
+            self.state((2, 3), (4, 4), frozenset({(3, 3)})),
+            Action.EAST, Action.NORTH, self.board, 10,
+            prefs_a=(Action.EAST, Action.NORTH, Action.WEST),
+        )
+        self.assertTrue(out.conflict)
+        self.assertEqual(out.resolved_action_b, Action.NORTH)  # winner kept
+        self.assertEqual(out.state.agent_b, (4, 3))
+        self.assertEqual(out.state.boxes, frozenset({(3, 3)}))  # push lost
+        self.assertEqual(out.resolved_action_a, Action.NORTH)   # 1st coexist
+        self.assertEqual(out.state.agent_a, (2, 2))
+
+    def test_engine_never_declines_a_preferred_deadlock_push(self):
+        # Deadlock avoidance is an AI preference, never an engine rule
+        # (rules.md): SOUTH strands the box in the (1, 5) corner, but it
+        # is the loser's preferred coexisting direction, so the engine
+        # takes it (the old `_pick_diversion` guard declined it here and
+        # fell back to NORTH).
+        state = self.state((1, 3), (3, 3), frozenset({(1, 4)}))
+        self.assertTrue(
+            creates_deadlock((1, 3), Action.SOUTH, state.boxes, self.board)
+        )
+        out = resolve_joint_action_outcome(
+            state, Action.EAST, Action.WEST, self.board, 10,
+            prefs_a=(Action.EAST, Action.SOUTH, Action.NORTH),
+        )
+        self.assertEqual(out.resolved_action_b, Action.WEST)   # winner kept
+        self.assertEqual(out.state.agent_b, (2, 3))
+        self.assertEqual(out.resolved_action_a, Action.SOUTH)  # push taken
+        self.assertIn((1, 5), out.state.boxes)                 # box stranded
+
+    def test_loser_with_no_legal_alternative_stays_put(self):
+        # Every direction except the conflicting EAST is blocked (walls or
+        # pushes into walls): with or without a preference list, the loser
+        # has no coexisting alternative and stays put (Rule 5 default).
+        board = square_board(extra_walls=((2, 1), (2, 5), (1, 3)))
+        state = CompetitiveState(
+            (2, 3), (4, 3), frozenset({(2, 2), (2, 4)}),
+            frozenset(), frozenset(), 0,
+        )
+        out = resolve_joint_action_outcome(
+            state, Action.EAST, Action.WEST, board, 10,
+            prefs_a=(Action.EAST, Action.NORTH, Action.SOUTH, Action.WEST),
+        )
+        self.assertTrue(out.conflict)
+        self.assertEqual(out.state.agent_b, (3, 3))       # winner took the cell
+        self.assertEqual(out.resolved_action_a, Action.WAIT)
+        self.assertEqual(out.state.agent_a, (2, 3))       # loser stayed
+
     # ── invariant sweep over real dynamics ──────────────────────────────
 
     def test_random_joint_actions_preserve_state_invariants(self):
@@ -257,6 +337,59 @@ class TestConflictRules(unittest.TestCase):
                 conflicts += 1
             st = out.state
         self.assertGreater(conflicts, 0)  # the sweep must exercise conflicts
+
+
+# ---------------------------------------------------------------------------
+# Rule 3: the preference list itself (shared ranking function)
+# ---------------------------------------------------------------------------
+
+class TestRule3PreferenceList(unittest.TestCase):
+    def test_list_is_deterministic_legal_and_primary_pinned(self):
+        board = square_board()
+        state = CompetitiveState(
+            (2, 2), (4, 2), frozenset({(3, 3)}),
+            frozenset(), frozenset(), 0,
+        )
+        prefs = round_preferences(state, board, 60, "A")
+        self.assertEqual(prefs, round_preferences(state, board, 60, "A"))
+        self.assertNotIn(Action.WAIT, prefs)   # forced-immobility only
+        legal = get_valid_actions((2, 2), (4, 2), state.boxes, board)
+        self.assertEqual(set(prefs), set(legal))       # exactly the legal set
+
+        # The chosen primary is pinned first, ranked alternatives follow
+        # unchanged after it (the round's submitted list).
+        pinned = round_preferences(
+            state, board, 60, "A", primary=Action.WEST
+        )
+        self.assertEqual(pinned[0], Action.WEST)
+        self.assertEqual(
+            tuple(p for p in pinned if p is not Action.WEST),
+            tuple(p for p in prefs if p is not Action.WEST),
+        )
+
+    def test_list_is_label_symmetric(self):
+        # Same positions, sides swapped, ranked for B: the shared zero-sum
+        # evaluation mirrors exactly, so the direction order is identical.
+        board = square_board()
+        state = CompetitiveState(
+            (2, 2), (4, 2), frozenset({(3, 3)}),
+            frozenset(), frozenset(), 0,
+        )
+        self.assertEqual(
+            round_preferences(swap_labels(state), board, 60, "B"),
+            round_preferences(state, board, 60, "A"),
+        )
+
+    def test_fully_blocked_agent_submits_empty_list(self):
+        # Corner pocket: every direction blocked - the list is empty and
+        # the engine keeps the agent in place (Rule 5 default).
+        board = square_board(extra_walls=((1, 2), (3, 1)))
+        state = CompetitiveState(
+            (1, 1), (4, 4), frozenset({(2, 1)}),
+            frozenset(), frozenset(), 0,
+        )
+        self.assertEqual(get_valid_actions((1, 1), (4, 4), state.boxes, board), [])
+        self.assertEqual(round_preferences(state, board, 60, "A"), ())
 
 
 # ---------------------------------------------------------------------------
@@ -447,7 +580,7 @@ class TestAgentBehavior(unittest.TestCase):
     def test_telemetry_is_populated(self):
         best_action(self.arena, self.arena_board, 50, "B",
                     deque(maxlen=6), {}, {}, 0.1)
-        self.assertEqual(LAST_SEARCH["engine"], "GBFS")
+        self.assertEqual(LAST_SEARCH["engine"], "simultaneous-maximin")
         self.assertEqual(LAST_SEARCH["perspective"], "B")
         self.assertGreaterEqual(LAST_SEARCH["depth"], 1)
         self.assertGreater(LAST_SEARCH["nodes"], 0)
@@ -481,7 +614,7 @@ class TestAgentBehavior(unittest.TestCase):
                              deque(maxlen=6), {}, {}, 0.1)
         self.assertEqual(action, Action.WAIT)
 
-    def test_agent_never_pushes_own_credited_box_off_its_goal(self):
+    def test_agent_preserves_unthreatened_credited_box(self):
         state = CompetitiveState(
             (3, 5), (1, 1), frozenset({(3, 4)}),
             frozenset({(3, 4)}), frozenset(), 0,
@@ -490,7 +623,7 @@ class TestAgentBehavior(unittest.TestCase):
                              deque(maxlen=6), {}, {}, 0.15)
         self.assertNotEqual(action, Action.NORTH)
 
-    def test_agent_never_pushes_box_into_static_deadlock(self):
+    def test_agent_avoids_pointless_deadlock_when_values_tie(self):
         state = CompetitiveState(
             (1, 3), (5, 5), frozenset({(1, 2)}),
             frozenset(), frozenset(), 0,
@@ -503,11 +636,15 @@ class TestAgentBehavior(unittest.TestCase):
         self.assertNotEqual(action, Action.NORTH)
 
     def test_agent_takes_the_immediate_scoring_push(self):
+        # A corner goal secures the point. The former open goal (3,4)
+        # allowed B to strip it in three rounds; that is a contested case,
+        # independently checked in test_search_identity instead.
+        board = square_board(goals=((5, 5),))
         state = CompetitiveState(
-            (3, 2), (5, 5), frozenset({(3, 3)}),
+            (5, 3), (1, 1), frozenset({(5, 4)}),
             frozenset(), frozenset(), 0,
         )
-        action = best_action(state, self.board, 20, "A",
+        action = best_action(state, board, 20, "A",
                              deque(maxlen=6), {}, {}, 0.15)
         self.assertEqual(action, Action.SOUTH)
 

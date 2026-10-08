@@ -1,48 +1,14 @@
-"""
-Deterministic joint transition for the 2-agent competitive Sokoban.
+"""Shared deterministic simultaneous transition, including forced blockage.
 
-The GUI and the search both call `resolve_joint_action_outcome`, so the AI can
-never disagree with the rules.
-
-Conflict rules
---------------
-7.1  both agents target the same destination cell
-7.2  the agents swap cells (A -> B's cell while B -> A's cell)
-7.3  both agents push the same box
-7.4  two pushes would drop a box on the same cell
-7.5  a push would drop a box on the cell the other agent ends up in
-7.6  an agent enters (or pushes into) a cell the other agent does not vacate
-
-Odd/even advantage
-------------------
-    remaining = max_steps - state.step
-    remaining odd  -> agent A wins every conflict
-    remaining even -> agent B wins every conflict
-
-The winner's intent is executed. The loser never stands still: its action is
-replaced by its best legal alternative (highest shared evaluation, tie-broken
-by a fixed direction order), chosen so that it cannot immediately trigger a
-second conflict - and a push that strands the box in a dead cell is declined
-whenever any other alternative exists. Only when an agent is physically boxed
-in with no legal alternative does it stay in place.
-
-Exception to "the winner takes the cell": if the other agent does not move at
-all (WAIT or an illegal action), it keeps the cell it already occupies and the
-agent trying to enter diverts instead - the occupant is not competing for a
-contested target, and the entrant still has to move.
-
-Speed
------
-Complete joint transitions are memoized on (board serial, max steps,
-positions, boxes, credits, remaining steps, both actions) - every input
-the outcome actually depends on. Iterative deepening re-expands the same
-nodes every round and the search visits many transpositions, so the cache
-is a large part of why the agent reaches depth inside its time budget.
+Odd remaining rounds favor A; even favor B. A conflict loser tries its fixed
+ranked alternatives. If a stationary loser blocks the winner, the winner
+tries a compatible alternative too (preserved existing gameplay). A side
+with no compatible move is forced to stay. Every resolved round consumes time.
+WAIT is an internal/legacy sentinel, not a selectable player direction.
 """
 
 from typing import Dict, NamedTuple, Optional, Tuple
 
-from src.competitive.evaluation import creates_deadlock, denial_justified, evaluate
 from src.competitive.state import Action, Board, CompetitiveState
 
 
@@ -92,11 +58,11 @@ def _intent(pos: Pos, action: Optional[Action], boxes, board: Board) -> Optional
     if action is None or action is Action.WAIT:
         return None
     dest = _step(pos, action)
-    if dest in board.walls:
+    if dest not in board.floor_cells:
         return None
     if dest in boxes:
         push_dest = _step(dest, action)
-        if push_dest in board.walls or push_dest in boxes:
+        if push_dest not in board.floor_cells or push_dest in boxes:
             return None
         return _Intent(dest, push_dest)
     return _Intent(dest, None)
@@ -193,18 +159,13 @@ def _pick_diversion(
     other_action: Optional[Action],
     board: Board,
     max_steps: int,
+    prefs: Optional[Tuple[Action, ...]] = None,
 ) -> Optional[Action]:
-    """
-    Best legal alternative for `who`, given what the other agent ends up doing
-    (`None` = it does not move). Returns None only when no alternative exists.
+    """First compatible legal fallback in a fixed starting-state ranking.
 
-    A push that strands the box in a cell it can never leave is declined
-    whenever any other alternative exists - unless it is a justified
-    denial (the opponent is already winning the delivery race for that
-    box, so killing it preserves a lead or turns a loss into a draw).
-    Denying the opponent a point is otherwise not worth killing the box
-    for both players (a dead box ends the game 0-0 forever instead of
-    leaving it playable).
+    No planner/evaluator is called during conflict resolution. Legacy callers
+    use the same cheap default policy as agents. An explicit empty list means
+    no alternatives; forced immobility is represented by None internally.
     """
     my_pos = state.agent_a if who == "A" else state.agent_b
     other_pos = state.agent_b if who == "A" else state.agent_a
@@ -216,10 +177,10 @@ def _pick_diversion(
         else None
     )
 
-    best_action: Optional[Action] = None
-    best_value = None
-    dead_fallback: Optional[Action] = None
-    for action in _YIELD_ORDER:
+    if prefs is None:
+        from src.competitive.preferences import round_preferences
+        prefs = round_preferences(state, board, max_steps, who)
+    for action in prefs:
         mine = _intent(my_pos, action, boxes, board)
         if mine is None:
             continue
@@ -228,29 +189,8 @@ def _pick_diversion(
                 continue
         elif _conflict(mine, theirs, my_pos, other_pos):
             continue
-
-        if (
-            mine.push_dest is not None
-            and creates_deadlock(my_pos, action, boxes, board)
-            and not denial_justified(
-                state, board, mine.dest, who, max_steps
-            )
-        ):
-            if dead_fallback is None:
-                dead_fallback = action      # only if nothing safe exists
-            continue
-
-        action_a = action if who == "A" else other_action
-        action_b = other_action if who == "A" else action
-        candidate = _commit(state, action_a, action_b, board, max_steps)
-        value = evaluate(candidate, board, who, max_steps)
-        if best_value is None or value > best_value:
-            best_value = value
-            best_action = action
-
-    if best_action is not None:
-        return best_action
-    return dead_fallback
+        return action
+    return None
 
 
 def _diversion_order(divert, max_steps: int, step: int):
@@ -269,6 +209,8 @@ def _resolve(
     action_b: Action,
     board: Board,
     max_steps: int,
+    prefs_a: Optional[Tuple[Action, ...]] = None,
+    prefs_b: Optional[Tuple[Action, ...]] = None,
 ) -> Outcome:
     pos = {"A": state.agent_a, "B": state.agent_b}
     acts = {"A": action_a, "B": action_b}
@@ -307,8 +249,13 @@ def _resolve(
     }
 
     # (3) the conflict loser(s) move somewhere else instead of standing still
+    #     (Rule 3: each loser diverts along ITS OWN preference list; the
+    #     winner's action is fixed first, never overturned by a fallback)
     for who in _diversion_order(divert, max_steps, state.step):
-        final[who] = _pick_diversion(state, who, final[_other(who)], board, max_steps)
+        final[who] = _pick_diversion(
+            state, who, final[_other(who)], board, max_steps,
+            prefs_a if who == "A" else prefs_b,
+        )
         conflict = True
 
     # (4) an agent with no alternative stays put, which can invalidate the
@@ -320,7 +267,10 @@ def _resolve(
         if final[other] is None and _enters(intent[who], pos[other]):
             conflict = True
             intent[who] = None
-            final[who] = _pick_diversion(state, who, final[other], board, max_steps)
+            final[who] = _pick_diversion(
+                state, who, final[other], board, max_steps,
+                prefs_a if who == "A" else prefs_b,
+            )
 
     next_state = _commit(state, final["A"], final["B"], board, max_steps)
     return Outcome(
@@ -337,8 +287,19 @@ def resolve_joint_action_outcome(
     action_b: Action,
     board: Board,
     max_steps: int,
+    prefs_a: Optional[Tuple[Action, ...]] = None,
+    prefs_b: Optional[Tuple[Action, ...]] = None,
 ) -> Outcome:
-    """Deterministic joint transition (memoized). Returns `Outcome`."""
+    """Deterministic joint transition (memoized). Returns `Outcome`.
+
+    `prefs_a`/`prefs_b` are this round's Rule 3 preference lists (see the
+    module docstring): the conflict loser of that side falls back along its
+    own list, while a side without a list uses the starting-state ranked default.
+    The lists are part of the cache key (None and an empty list are distinct
+    inputs - the first means "no list", the second "no legal direction").
+    """
+    pa = tuple(prefs_a) if prefs_a is not None else None
+    pb = tuple(prefs_b) if prefs_b is not None else None
     key = (
         board.serial,        # diversion choice depends on walls/goals
         max_steps,           # ...and the cached state carries an absolute
@@ -350,10 +311,12 @@ def resolve_joint_action_outcome(
         max_steps - state.step,
         action_a,
         action_b,
+        pa,                  # Rule 3: fallback order shapes the diversion
+        pb,
     )
     outcome = _transition_cache.get(key)
     if outcome is None:
-        outcome = _resolve(state, action_a, action_b, board, max_steps)
+        outcome = _resolve(state, action_a, action_b, board, max_steps, pa, pb)
         if len(_transition_cache) >= _CACHE_LIMIT:
             _transition_cache.clear()
         _transition_cache[key] = outcome
@@ -394,11 +357,11 @@ def get_valid_actions(
     valid = []
     for action in _YIELD_ORDER:
         dest = _step(pos, action)
-        if dest in board.walls:
+        if dest not in board.floor_cells:
             continue
         if dest in boxes:
             push_dest = _step(dest, action)
-            if push_dest in board.walls or push_dest in boxes:
+            if push_dest not in board.floor_cells or push_dest in boxes:
                 continue
         valid.append(action)
 
