@@ -15,7 +15,16 @@ class Action(Enum):
 
 class Board:
     """Static board information — walls, goals, dimensions. Created once and shared."""
-    __slots__ = ("walls", "goals", "width", "height", "floor_cells", "distances", "push_costs", "exact_step_costs")
+    __slots__ = ("walls", "goals", "width", "height", "floor_cells", "distances",
+                 "push_costs", "exact_step_costs", "serial")
+
+    # Monotone board identity. The evaluation and transition memo caches are
+    # keyed by positions/boxes/credits, which are only meaningful together
+    # with the board they were computed on (different walls/goals give
+    # different distances, diversion choices and deadlock verdicts). The
+    # serial distinguishes boards even when they are recycled at the same
+    # memory address, so a stale cache entry can never be served.
+    _serial_counter = 0
 
     def __init__(
         self,
@@ -24,6 +33,8 @@ class Board:
         width: int,
         height: int,
     ):
+        Board._serial_counter += 1
+        self.serial = Board._serial_counter
         self.walls = frozenset(walls)
         self.goals = frozenset(goals)
         self.width = width

@@ -22,8 +22,9 @@ Odd/even advantage
 The winner's intent is executed. The loser never stands still: its action is
 replaced by its best legal alternative (highest shared evaluation, tie-broken
 by a fixed direction order), chosen so that it cannot immediately trigger a
-second conflict. Only when an agent is physically boxed in with no legal
-alternative does it stay in place.
+second conflict - and a push that strands the box in a dead cell is declined
+whenever any other alternative exists. Only when an agent is physically boxed
+in with no legal alternative does it stay in place.
 
 Exception to "the winner takes the cell": if the other agent does not move at
 all (WAIT or an illegal action), it keeps the cell it already occupies and the
@@ -32,15 +33,16 @@ contested target, and the entrant still has to move.
 
 Speed
 -----
-Complete joint transitions are memoized on (positions, boxes, credits,
-remaining steps, both actions). Iterative deepening re-expands the same nodes
-every round and the search visits many transpositions, so the cache is a large
-part of why the agent reaches depth inside its time budget.
+Complete joint transitions are memoized on (board serial, max steps,
+positions, boxes, credits, remaining steps, both actions) - every input
+the outcome actually depends on. Iterative deepening re-expands the same
+nodes every round and the search visits many transpositions, so the cache
+is a large part of why the agent reaches depth inside its time budget.
 """
 
 from typing import Dict, NamedTuple, Optional, Tuple
 
-from src.competitive.evaluation import evaluate
+from src.competitive.evaluation import creates_deadlock, denial_justified, evaluate
 from src.competitive.state import Action, Board, CompetitiveState
 
 
@@ -195,6 +197,14 @@ def _pick_diversion(
     """
     Best legal alternative for `who`, given what the other agent ends up doing
     (`None` = it does not move). Returns None only when no alternative exists.
+
+    A push that strands the box in a cell it can never leave is declined
+    whenever any other alternative exists - unless it is a justified
+    denial (the opponent is already winning the delivery race for that
+    box, so killing it preserves a lead or turns a loss into a draw).
+    Denying the opponent a point is otherwise not worth killing the box
+    for both players (a dead box ends the game 0-0 forever instead of
+    leaving it playable).
     """
     my_pos = state.agent_a if who == "A" else state.agent_b
     other_pos = state.agent_b if who == "A" else state.agent_a
@@ -208,6 +218,7 @@ def _pick_diversion(
 
     best_action: Optional[Action] = None
     best_value = None
+    dead_fallback: Optional[Action] = None
     for action in _YIELD_ORDER:
         mine = _intent(my_pos, action, boxes, board)
         if mine is None:
@@ -218,6 +229,17 @@ def _pick_diversion(
         elif _conflict(mine, theirs, my_pos, other_pos):
             continue
 
+        if (
+            mine.push_dest is not None
+            and creates_deadlock(my_pos, action, boxes, board)
+            and not denial_justified(
+                state, board, mine.dest, who, max_steps
+            )
+        ):
+            if dead_fallback is None:
+                dead_fallback = action      # only if nothing safe exists
+            continue
+
         action_a = action if who == "A" else other_action
         action_b = other_action if who == "A" else action
         candidate = _commit(state, action_a, action_b, board, max_steps)
@@ -226,7 +248,9 @@ def _pick_diversion(
             best_value = value
             best_action = action
 
-    return best_action
+    if best_action is not None:
+        return best_action
+    return dead_fallback
 
 
 def _diversion_order(divert, max_steps: int, step: int):
@@ -316,7 +340,9 @@ def resolve_joint_action_outcome(
 ) -> Outcome:
     """Deterministic joint transition (memoized). Returns `Outcome`."""
     key = (
-        state.agent_a,
+        board.serial,        # diversion choice depends on walls/goals
+        max_steps,           # ...and the cached state carries an absolute
+        state.agent_a,       # step, so (remaining, max_steps) must both match
         state.agent_b,
         state.boxes,
         state.boxes_on_goals_a,
