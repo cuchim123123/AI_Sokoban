@@ -234,6 +234,27 @@ class RenderMixin:
             if b["life"] <= 0:
                 self.conflict_badge = None
 
+        # Yielding is a deliberate B action, not a conflict-priority win.
+        # Use a warm, solid pill BELOW B; conflict text floats ABOVE its winner.
+        if self.step_loop_breaks.get(self.state.step):
+            label = self.font_sm.render("B is breaking the loop", True, (255, 218, 145))
+            width, height = label.get_width() + 44, label.get_height() + 16
+            bx, by = lerp_pos(self.prev_state.agent_b, self.state.agent_b, t)
+            x = max(8, min(self.screen_w - width - 8,
+                           offset_x + bx * TILE + TILE // 2 - width // 2))
+            y = min(self.screen_h - UI_H - height - 6,
+                    offset_y + (by + 1) * TILE + 8)
+            rect = pygame.Rect(x, y, width, height)
+            pygame.draw.rect(self.screen, (55, 41, 24), rect, border_radius=10)
+            pygame.draw.rect(self.screen, (222, 166, 73), rect, width=1, border_radius=10)
+            # Bent arrow visually distinguishes yielding from winning.
+            cx, cy = rect.x + 17, rect.centery
+            pygame.draw.lines(self.screen, (255, 218, 145), False,
+                              [(cx - 5, cy - 5), (cx - 5, cy + 4), (cx + 6, cy + 4)], 2)
+            pygame.draw.lines(self.screen, (255, 218, 145), False,
+                              [(cx + 2, cy), (cx + 6, cy + 4), (cx + 2, cy + 8)], 2)
+            self.screen.blit(label, (rect.x + 32, rect.y + 8))
+
     def _draw_agent_anim(self, label, prev_pos, next_pos, t, ox, oy, color):
         ax, ay = lerp_pos(prev_pos, next_pos, t)
         px, py = ox + ax * TILE, oy + ay * TILE
@@ -358,6 +379,5 @@ class RenderMixin:
         self.screen.blit(txt, txt.get_rect(center=(cx, cy - 40)))
         self.screen.blit(sub, sub.get_rect(center=(cx, cy + 10)))
         self.screen.blit(hint, hint.get_rect(center=(cx, cy + 60)))
-
 
 

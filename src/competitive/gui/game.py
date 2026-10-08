@@ -43,6 +43,9 @@ class GameMixin:
         t1 = time.time()
         action_b = self.agent_b.choose_action(self.state, self.board, self.max_steps) if self.agent_b else None
         dt_b = time.time() - t1
+        # Snapshot presentation metadata with this result, not a later search.
+        loop_breaking = bool(self.agent_b and getattr(self.agent_b, "last_search", {})
+                             .get("loop_breaker", {}).get("active", False))
         
         while (not self.agent_a and self.pending_human_a is None) or \
               (not self.agent_b and self.pending_human_b is None):
@@ -79,7 +82,7 @@ class GameMixin:
             self.state, action_a, action_b, self.board, self.max_steps,
             prefs_a=prefs_a, prefs_b=prefs_b,
         )
-        self.pending_out = (expected_step, action_a, action_b, out, dt_a, dt_b)
+        self.pending_out = (expected_step, action_a, action_b, out, dt_a, dt_b, loop_breaking)
 
     def _apply_computed_step(self):
         self.computing = False
@@ -94,7 +97,7 @@ class GameMixin:
             self.pending_out = None
             return
             
-        step_idx, action_a, action_b, out, dt_a, dt_b = self.pending_out
+        step_idx, action_a, action_b, out, dt_a, dt_b, loop_breaking = self.pending_out
         self.pending_out = None
         
         if step_idx != self.state.step:
@@ -108,6 +111,13 @@ class GameMixin:
         self.prev_state = self.state
         self.state = out.state
         self.anim_t = 0.0
+
+        # UI-only history: remove the abandoned future when replay branches.
+        self.step_loop_breaks = {
+            k: v for k, v in self.step_loop_breaks.items() if k < self.state.step
+        }
+        if loop_breaking:
+            self.step_loop_breaks[self.state.step] = True
 
         # Conflict bookkeeping (UI display only): record which side held
         # parity priority for the round that just resolved, keyed by the
@@ -160,4 +170,3 @@ class GameMixin:
             self.finished = True
             self.running  = False
             self.finish_time = pygame.time.get_ticks()
-

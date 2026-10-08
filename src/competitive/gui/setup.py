@@ -100,6 +100,7 @@ class SetupMixin:
         self.particles = []
         self.floating_texts = []
         self.step_conflicts = {}
+        self.step_loop_breaks = {}
         self.conflict_badge = None
         
         self.computing = False
@@ -119,4 +120,3 @@ class SetupMixin:
         self.screen_w = max(w, 800)
         self.screen_h = max(h, 600)
         self.screen = pygame.display.set_mode((self.screen_w, self.screen_h))
-

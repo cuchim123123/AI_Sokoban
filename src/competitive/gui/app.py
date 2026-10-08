@@ -120,6 +120,7 @@ class CompetitiveApp(SetupMixin, GameMixin, EventsMixin, RenderMixin):
         # Conflict-advantage UI: per-step priority winner (UI display
         # only - never fed back into search or scoring).
         self.step_conflicts = {}
+        self.step_loop_breaks = {}
         self.conflict_badge = None
         
         # Threading state
